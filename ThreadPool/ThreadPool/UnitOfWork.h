@@ -4,7 +4,7 @@
 #define UNICODE
 #endif
 
-#include "Definitions.h"
+#include <process.h>
 
 class UnitOfWork
 {

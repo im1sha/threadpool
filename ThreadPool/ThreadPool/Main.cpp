@@ -43,15 +43,19 @@ int wmain()
 
 	printf("HANDLE: %p\n", GetCurrentThread());
 	printf("to long long: %lld\n", (long long) GetCurrentThread());
-	*/
+	*/	
 
-	std::vector<std::wstring> strings = Utils::loadStringsFromFile(nullptr);
+
+	std::wstring source = Utils::selectOpenedFile(nullptr);
+	std::vector<std::wstring> strings = Utils::loadStringsFromFile(source);
 
 	Utils::sortStrings(&strings);
 
-	bool result = Utils::writeToFile(L"C:\\Users\\Foxx\\Desktop\\1.txt", strings);
+	std::wstring destination = Utils::selectSavedFile(nullptr);
+	bool result = Utils::writeToFile(destination, strings);
 
 	printf_s("OK");
+
 	getchar();
 
 	return 0;

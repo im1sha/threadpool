@@ -12,13 +12,22 @@
 //#include <future>
 //#include <functional>
 
-
-#include "Definitions.h"
+#include <vector>
+#include <synchapi.h>
+#include "UnitOfWork.h"
 
 class ThreadPool {
 public:
-	int create();
+	ThreadPool(int maxThreads);
+	~ThreadPool();	
+	void enqueue(UnitOfWork task);
+private:
+	const int DEFAULT_THREADS = 4;
+	const DWORD defaultSpinCount = 4000;
+	CRITICAL_SECTION taskListCriticalSection;
 
+	int create();
+	std::vector<UnitOfWork> taskList;
 };
 
 

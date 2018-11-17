@@ -1,11 +1,8 @@
 #include "Utils.h"
 
-std::vector<std::wstring> Utils::loadStringsFromFile(HWND hWnd)
+std::wstring Utils::selectOpenedFile(HWND hWnd)
 {
-	std::vector<std::wstring> loadedStrings;
-
-	wchar_t fileName[MAX_PATH] = {};
-
+	wchar_t fileName[_MAX_PATH] = {};
 	OPENFILENAME openFileName;
 	openFileName.lStructSize = sizeof(OPENFILENAME);
 	openFileName.hwndOwner = hWnd;
@@ -20,10 +17,36 @@ std::vector<std::wstring> Utils::loadStringsFromFile(HWND hWnd)
 	openFileName.lpstrTitle = L"Select text file";
 	openFileName.Flags = OFN_FILEMUSTEXIST | OFN_PATHMUSTEXIST;
 	openFileName.lpstrDefExt = nullptr;
+	::GetOpenFileName(&openFileName);
+	return std::wstring(fileName);
+}
 
-	bool sucessful = ::GetOpenFileName(&openFileName);
+std::wstring Utils::selectSavedFile(HWND hWnd)
+{
+	wchar_t fileName[_MAX_PATH] = {};
+	OPENFILENAME openFileName;
+	openFileName.lStructSize = sizeof(OPENFILENAME);
+	openFileName.hwndOwner = hWnd;
+	openFileName.hInstance = nullptr;
+	openFileName.lpstrFilter = L"Text files\0*.txt\0\0";
+	openFileName.lpstrCustomFilter = nullptr;
+	openFileName.nFilterIndex = 1;
+	openFileName.lpstrFile = fileName;
+	openFileName.nMaxFile = sizeof(fileName);
+	openFileName.lpstrFileTitle = nullptr;
+	openFileName.lpstrInitialDir = nullptr;
+	openFileName.lpstrTitle = L"Save file";
+	openFileName.Flags = OFN_FILEMUSTEXIST | OFN_PATHMUSTEXIST;
+	openFileName.lpstrDefExt = nullptr;
+	::GetSaveFileName(&openFileName);
+	return std::wstring(fileName);
+}
 
-	if (sucessful)
+std::vector<std::wstring> Utils::loadStringsFromFile(std::wstring fileName)
+{
+	std::vector<std::wstring> loadedStrings;
+
+	if (0 == ::_waccess(fileName.c_str(), 04)) // Read - only access
 	{
 		std::wifstream stream(fileName, std::wios::binary);
 

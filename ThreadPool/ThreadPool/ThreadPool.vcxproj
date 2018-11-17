@@ -119,12 +119,13 @@
     <ClCompile Include="UnitOfWork.cpp" />
     <ClCompile Include="Utils.cpp" />
     <ClCompile Include="ThreadPool.cpp" />
+    <ClCompile Include="WorkTask.cpp" />
   </ItemGroup>
   <ItemGroup>
-    <ClInclude Include="Definitions.h" />
     <ClInclude Include="UnitOfWork.h" />
     <ClInclude Include="Utils.h" />
     <ClInclude Include="ThreadPool.h" />
+    <ClInclude Include="WorkTask.h" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">

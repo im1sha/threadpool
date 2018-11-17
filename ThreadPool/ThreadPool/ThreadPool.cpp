@@ -1,5 +1,23 @@
 #include "ThreadPool.h"
 
+ThreadPool::ThreadPool(int maxThreads)
+{
+	::InitializeCriticalSectionAndSpinCount(&taskListCriticalSection, defaultSpinCount);
+}
+
+ThreadPool::~ThreadPool()
+{
+	::DeleteCriticalSection(&taskListCriticalSection);
+}
+
+void ThreadPool::enqueue(UnitOfWork task)
+{
+	::EnterCriticalSection(&taskListCriticalSection);
+	taskList.push_back(task);
+	::LeaveCriticalSection(&taskListCriticalSection);
+}
+
+
 int ThreadPool::create()
 {
 	/*
@@ -12,8 +30,8 @@ int ThreadPool::create()
 		_Out_opt_ unsigned*                _ThrdAddr
 	);
 	*/
-	 
-	
+
+
 	//_beginthreadex(
 	//	(void *)(psa),
 	//	(unsigned)(cbStack),
@@ -24,14 +42,15 @@ int ThreadPool::create()
 	//);
 	//
 
-	/*uintptr_t pointerToThread = 
+	/*uintptr_t pointerToThread =
 		_beginthreadex(nullptr, 0, );*/
 
 
-	/*
-	InitializeCriticalSection
-	EnterCriticalSection(&g_cs);
-	LeaveCriticalSection(&g_cs);*/
-	//CRITICAL_SECTION g_cs
+		/*
+		InitializeCriticalSection
+		EnterCriticalSection(&g_cs);
+		LeaveCriticalSection(&g_cs);*/
+		//CRITICAL_SECTION g_cs
 	return 0;
 }
+
