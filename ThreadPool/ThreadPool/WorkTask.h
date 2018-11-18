@@ -11,7 +11,7 @@
 class WorkTask
 {
 public:
-	WorkTask(std::vector<UnitOfWork>* workQueue, HANDLE queueCountSemaphore, CRITICAL_SECTION queueSection, time_t timeout);
+	WorkTask(std::vector<UnitOfWork>* workQueue, HANDLE availableEvent, CRITICAL_SECTION queueSection, time_t timeout);
 
 	~WorkTask();
 
@@ -27,8 +27,8 @@ private:
 	// Reference to Threadpool's queue
 	std::vector<UnitOfWork>* workQueue_ = nullptr;
 
-	// Reference to empty queue ThreadPool determinant 
-	HANDLE queueCountSemaphore_ = nullptr;
+	// Determines whether queue contains any element 
+	HANDLE availableEvent_ = nullptr;
 
 	// Critical section providing atomic dequeue operations
 	CRITICAL_SECTION queueSection_;
@@ -54,7 +54,7 @@ private:
 	// Retrieves first item from workQueue_
 	UnitOfWork dequeue();
 
-	size_t getQueueSize();
+	//size_t getQueueSize();
 
 	// Interupts thread
 	void interrupt();

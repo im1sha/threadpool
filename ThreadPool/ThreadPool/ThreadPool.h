@@ -30,8 +30,8 @@ private:
 	// Reference to queue
 	std::vector<UnitOfWork>* workQueue_ = nullptr;
 
-	// Semaphor determining empty queue
-	HANDLE queueCountSemaphore = nullptr;
+	// Event determining if queue contains 1 item at least
+	HANDLE availableEvent_ = nullptr;
 
 	// Critical section providing atomic enque/dequeue operations
 	CRITICAL_SECTION queueSection_;

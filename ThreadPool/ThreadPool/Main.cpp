@@ -31,6 +31,8 @@
 #include "ThreadPool.h"
 #include "Utils.h"
 
+void th() { throw new std::exception(); }
+
 int wmain() 
 {
 	/*
@@ -45,7 +47,7 @@ int wmain()
 	printf("to long long: %lld\n", (long long) GetCurrentThread());
 	*/	
 
-
+/*
 	std::wstring source = Utils::selectOpenedFile(nullptr);
 	std::vector<std::wstring> strings = Utils::loadStringsFromFile(source);
 
@@ -53,7 +55,7 @@ int wmain()
 
 	std::wstring destination = Utils::selectSavedFile(nullptr);
 	bool result = Utils::writeToFile(destination, strings);
-
+*/
 	printf_s("OK");
 
 	getchar();

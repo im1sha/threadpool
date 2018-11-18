@@ -1,20 +1,15 @@
 #include "WorkTask.h"
 
-WorkTask::WorkTask(std::vector<UnitOfWork>* workQueue, HANDLE queueCountSemaphore, CRITICAL_SECTION queueSection, time_t timeout)
+WorkTask::WorkTask(std::vector<UnitOfWork>* workQueue, HANDLE availableEvent, CRITICAL_SECTION queueSection, time_t timeout)
 {
 	workQueue_ = workQueue;
-	queueCountSemaphore_ = queueCountSemaphore;
+	availableEvent_ = availableEvent;
 	queueSection_ = queueSection;
 	waitTimeout_ = timeout;
 	lastOperationTime_ = ::time(nullptr);
 
-	hThread_ = (HANDLE) ::_beginthreadex(
-		nullptr,		
-		0,				
-		(_beginthreadex_proc_type) this->startExecutableLoop,
-		this,
-		0,				
-		runningThread_);	
+	hThread_ = (HANDLE) ::_beginthreadex(nullptr, 0, (_beginthreadex_proc_type) WorkTask::startExecutableLoop, 
+		this, 0, runningThread_);	
 }
 
 WorkTask::~WorkTask()
@@ -48,6 +43,10 @@ UnitOfWork WorkTask::dequeue()
 	{
 		*t = (*workQueue_)[0];
 		workQueue_->erase(workQueue_->begin());
+		if (workQueue_->size() == 0)
+		{
+			::ResetEvent(availableEvent_);
+		}
 	}
 
 	// TO-DO : add __finally to CriticalSections
@@ -55,23 +54,6 @@ UnitOfWork WorkTask::dequeue()
 
 	return *t;
 }
-
-size_t WorkTask::getQueueSize() 
-{
-	size_t length = 0;
-
-	::EnterCriticalSection(&queueSection_);
-	if (workQueue_ != nullptr)
-	{
-		length = workQueue_->size();
-	}
-
-	// TO-DO : add __finally to CriticalSections
-	::LeaveCriticalSection(&queueSection_);
-
-	return length;
-}
-
 
 void WorkTask::interrupt() 
 {
@@ -85,7 +67,7 @@ void WorkTask::interrupt()
 			// no action needed
 			break;
 		default:
-			::TerminateThread(hThread_, -1);
+			::_endthreadex(-1);
 			break;
 		}
 		delete runningThread_;
@@ -108,7 +90,7 @@ unsigned WorkTask::startExecutableLoop(WorkTask task)
 
 	if (exitCode != 0) 
 	{ 
-		::_endthreadex(exitCode); 
+		return exitCode;
 	}
 	
 	UnitOfWork* u = nullptr;
@@ -118,21 +100,26 @@ unsigned WorkTask::startExecutableLoop(WorkTask task)
 		std::exception_ptr exception;
 		try
 		{
-			while (task.getQueueSize() > 0)
+			while (task.shouldKeepRunning_)
 			{
-				*u = task.dequeue();
+				while ((u == nullptr) && task.shouldKeepRunning_)
+				{
+					WaitForSingleObject(task.availableEvent_, task.waitTimeout_);
+					*u = task.dequeue();
+				}
 
 				if ((u != nullptr) && (u->getMethod() != nullptr))
 				{
 					task.lastOperationTime_ = ::time(nullptr);
 					task.busy_ = true;
 
-					std::function<void(void*)> functionToExecute = u->getMethod();
-					void* functionParameters = u->getParemeters();
+					std::function<void(void *)> functionToExecute = u->getMethod();
+					void * functionParameters = u->getParemeters();
 
 					functionToExecute(functionParameters);
 
 					u->~UnitOfWork();
+					u = nullptr;
 				}
 			}
 			task.busy_ = false;
@@ -144,5 +131,5 @@ unsigned WorkTask::startExecutableLoop(WorkTask task)
 		}
 	}
 	
-	::_endthreadex(exitCode);
+	return 0;
 }
