@@ -21,8 +21,15 @@ public:
 	// Determines whether the thread executes the task
 	bool isBusy();
 
+	// Interupts idling thread
+	void wakeUp();
+
 	// Gets time of last operation starting thread
 	time_t getLastOperationTime();
+
+	// Interupts thread
+	static void interrupt(HANDLE hThread, time_t waitTimeout);
+
 private:
 	// Reference to Threadpool's queue
 	std::vector<UnitOfWork>* workQueue_ = nullptr;
@@ -40,7 +47,7 @@ private:
 	time_t waitTimeout_ = 0;
 
 	// Thread's handle
-	HANDLE hThread_ = nullptr;
+	HANDLE thread_ = nullptr;
 
 	// Determines whether the thread preffered to continue running
 	bool shouldKeepRunning_ = true;
@@ -53,14 +60,6 @@ private:
 
 	// Retrieves first item from workQueue_
 	UnitOfWork dequeue();
-
-	//size_t getQueueSize();
-
-	// Interupts thread
-	void interrupt();
-
-	// Interupts idling thread
-	void wakeUp();
 
 	// Executes task belongs to queue of all the tasks passed to ThreadPool  
 	static unsigned startExecutableLoop(WorkTask args);

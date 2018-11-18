@@ -8,7 +8,7 @@ WorkTask::WorkTask(std::vector<UnitOfWork>* workQueue, HANDLE availableEvent, CR
 	waitTimeout_ = timeout;
 	lastOperationTime_ = ::time(nullptr);
 
-	hThread_ = (HANDLE) ::_beginthreadex(nullptr, 0, (_beginthreadex_proc_type) WorkTask::startExecutableLoop, 
+	thread_ = (HANDLE) ::_beginthreadex(nullptr, 0, (_beginthreadex_proc_type) WorkTask::startExecutableLoop, 
 		this, 0, runningThread_);	
 }
 
@@ -21,7 +21,7 @@ void WorkTask::close()
 {
 	busy_ = false;
 	shouldKeepRunning_ = false;	
-	this->interrupt();	
+	this->interrupt(thread_, waitTimeout_);
 }
 
 bool WorkTask::isBusy()
@@ -55,32 +55,40 @@ UnitOfWork WorkTask::dequeue()
 	return *t;
 }
 
-void WorkTask::interrupt() 
-{
+void WorkTask::interrupt(HANDLE hThread, time_t waitTimeout)
+{	
+	DWORD returnValue = ::WaitForSingleObject(hThread, (DWORD) waitTimeout);
+	
+	switch (returnValue)
+	{
+	case WAIT_OBJECT_0:
+		// terminated itself
+		// no action needed
+		break;
+	default:
+		// ::_endthreadex(-1);
+		::TerminateThread(hThread, -1);
+		break;
+	}
+
+	/*
+
 	if (runningThread_ != nullptr)
 	{
-		DWORD returnValue = ::WaitForSingleObject(hThread_, (DWORD) waitTimeout_);
-		switch (returnValue)
-		{
-		case WAIT_OBJECT_0:
-			// terminated itself
-			// no action needed
-			break;
-		default:
-			::_endthreadex(-1);
-			break;
-		}
 		delete runningThread_;
-		if (hThread_ != nullptr)
-		{
-			::CloseHandle(hThread_);
-		}
 	}
+	if (hThread_ != nullptr)
+	{
+		::CloseHandle(hThread_);
+	}
+
+	*/
+	
 }
 
 void WorkTask::wakeUp()
 {
-	this->interrupt();
+	this->interrupt(thread_, waitTimeout_);
 	busy_ = true;
 }
 
@@ -104,17 +112,19 @@ unsigned WorkTask::startExecutableLoop(WorkTask task)
 			{
 				while ((u == nullptr) && task.shouldKeepRunning_)
 				{
-					WaitForSingleObject(task.availableEvent_, task.waitTimeout_);
+					WaitForSingleObject(task.availableEvent_, (DWORD) task.waitTimeout_);
 					*u = task.dequeue();
 				}
 
 				if ((u != nullptr) && (u->getMethod() != nullptr))
-				{
-					task.lastOperationTime_ = ::time(nullptr);
+				{			
 					task.busy_ = true;
 
 					std::function<void(void *)> functionToExecute = u->getMethod();
+
 					void * functionParameters = u->getParemeters();
+
+					task.lastOperationTime_ = ::time(nullptr);
 
 					functionToExecute(functionParameters);
 
@@ -133,3 +143,4 @@ unsigned WorkTask::startExecutableLoop(WorkTask task)
 	
 	return 0;
 }
+

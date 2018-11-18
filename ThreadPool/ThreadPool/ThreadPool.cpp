@@ -1,60 +1,208 @@
 #include "ThreadPool.h"
 
-ThreadPool::ThreadPool(int maxThreads)
+ThreadPool::ThreadPool(int maxThreads, int msTimeout) : ThreadPool::ThreadPool()
 {
-	workQueue_ = new std::vector<UnitOfWork>();
-	::InitializeCriticalSectionAndSpinCount(&queueSection_, DEFAULT_SPIN_COUNT);
-	availableEvent_ = ::CreateEvent(nullptr, true, false, nullptr);
+	setMaxThreads(maxThreads);
 }
 
+ThreadPool::ThreadPool()
+{
+	minThreads_ = 1;
+	if (maxThreads_ == 0)
+	{
+		maxThreads_ = minThreads_;
+	}
+
+	unitsQueue_ = new std::vector<UnitOfWork>();
+	::InitializeCriticalSectionAndSpinCount(&unitsSection_, DEFAULT_SPIN_COUNT);
+	::InitializeCriticalSectionAndSpinCount(&threadsSection_, DEFAULT_SPIN_COUNT);
+	availableEvent_ = ::CreateEvent(nullptr, true, false, nullptr);
+
+	managementThread_ = (HANDLE) ::_beginthreadex(nullptr, 0, (_beginthreadex_proc_type) ThreadPool::keepManagement,
+		this, 0, managementThreadAddress_);
+}
+	
 ThreadPool::~ThreadPool()
 {
-	delete workQueue_;
-	::DeleteCriticalSection(&queueSection_);
-	::CloseHandle(availableEvent_);
+	this->close();	
 }
 
 void ThreadPool::enqueue(UnitOfWork task)
 {
-	::EnterCriticalSection(&queueSection_);
-	workQueue_->push_back(task);
-	::SetEvent(availableEvent_);
-	::LeaveCriticalSection(&queueSection_);
+	::EnterCriticalSection(&unitsSection_);
+	unitsQueue_->push_back(task);
+	if (unitsQueue_->size() == 1)
+	{
+		::SetEvent(availableEvent_);
+	}
+	::LeaveCriticalSection(&unitsSection_);
+	
+	bool idleThreadExists = false;
+	::EnterCriticalSection(&threadsSection_);
+	for (WorkTask t : *threadList_)
+	{
+		if (!t.isBusy())
+		{
+			t.wakeUp();
+			idleThreadExists = true;
+			break;
+		}
+	}
+	
+	if (!idleThreadExists)
+	{
+		if (threadList_->size() < maxThreads_)
+		{
+			WorkTask* t = new WorkTask(unitsQueue_, availableEvent_, unitsSection_, getMaxIdleTime()); 
+
+			// should be deleted later
+			// with delete call
+
+			threadList_->push_back(*t);
+		}
+	}	
+	::LeaveCriticalSection(&threadsSection_);
 }
 
-//int ThreadPool::create()
+void ThreadPool::close()
+{	
+	keepManagementThreadRunning_ = false;
+
+	if (managementThread_ != nullptr)
+	{
+		WorkTask::interrupt(managementThread_, 2 * getMaxIdleTime());
+	}
+
+	managementThread_ = nullptr;
+	
+	::EnterCriticalSection(&threadsSection_);
+	for (WorkTask task : *threadList_)
+	{
+		task.close();
+	}
+
+	// wait 'till all threads destroyed
+	// ! replace with wait function
+	::Sleep(getMaxIdleTime());
+
+	::LeaveCriticalSection(&threadsSection_);
+
+	delete unitsQueue_;
+	delete threadList_;
+	::DeleteCriticalSection(&unitsSection_);
+	::DeleteCriticalSection(&threadsSection_);
+	::CloseHandle(availableEvent_);
+}
+
+void ThreadPool::keepManagement(ThreadPool* t)
+{
+	while (t->keepManagementThreadRunning_)
+	{
+		std::exception_ptr exception;
+		try
+		{
+			while (t->keepManagementThreadRunning_)
+			{			
+				::EnterCriticalSection(&t->threadsSection_);
+				if(t->threadList_->size() > t->minThreads_) 
+				{
+					for (size_t i = 0; i < t->threadList_->size(); i++)
+					{				
+						WorkTask w = (*(t->threadList_))[i];
+						if (::time(nullptr) - w.getLastOperationTime() > t->maxIdleTime_)
+						{
+							w.close();
+							t->threadList_->erase(t->threadList_->begin() + i); // delete item # i
+						}
+					}
+				}
+
+				::LeaveCriticalSection(&t->threadsSection_);
+				::Sleep((DWORD) t->getMaxIdleTime());
+			}			
+		}
+		catch(...)
+		{
+			exception = std::current_exception();
+			exception.~exception_ptr();
+		}
+	}
+
+}
+
+int ThreadPool::getLength()
+{
+	int length = 0;
+
+	::EnterCriticalSection(&unitsSection_);
+
+	length = (int)unitsQueue_->size();
+
+	::LeaveCriticalSection(&unitsSection_);
+
+	return length;
+}
+
+int ThreadPool::getAvailableThreads()
+{
+	return maxThreads_ - (int) threadList_->size();
+}
+
+bool ThreadPool::setMaxThreads(int workerThreads)
+{
+	bool result = false;
+	if ((1 <= workerThreads) && (minThreads_ <= workerThreads))
+	{
+		maxThreads_ = workerThreads;
+		result = true;
+	}
+	return result;
+}
+
+int ThreadPool::getMaxThreads()
+{
+	return maxThreads_;
+}
+
+bool ThreadPool::setMinTreads(int workerThreads)
+{
+	bool result = false;
+	if ((1 <= workerThreads) && (workerThreads <= maxThreads_))
+	{
+		minThreads_ = workerThreads;
+		result = true;
+	}
+	return result;
+}
+
+int ThreadPool::getMinThreads()
+{
+	return minThreads_;
+}
+
+//bool ThreadPool::setManagementInterval(int millisecondsTimeout)
 //{
-//	/*
-//	_ACRTIMP uintptr_t __cdecl _beginthreadex(
-//		_In_opt_  void*                    _Security,
-//		_In_      unsigned                 _StackSize,
-//		_In_      _beginthreadex_proc_type _StartAddress,
-//		_In_opt_  void*                    _ArgList,
-//		_In_      unsigned                 _InitFlag,
-//		_Out_opt_ unsigned*                _ThrdAddr
-//	);
-//	*/
-//
-//
-//	//_beginthreadex(
-//	//	(void *)(psa),
-//	//	(unsigned)(cbStack),
-//	//	(_beginthreadex_proc_type)(pfnStartAddr),
-//	//	(void *)(pvParam),
-//	//	(unsigned)(fdwCreate),
-//	//	(unsigned *)(pdwThreadID)
-//	//);
-//	//
-//
-//	/*uintptr_t pointerToThread =
-//		_beginthreadex(nullptr, 0, );*/
-//
-//
-//		/*
-//		InitializeCriticalSection
-//		EnterCriticalSection(&g_cs);
-//		LeaveCriticalSection(&g_cs);*/
-//		//CRITICAL_SECTION g_cs
-//	return 0;
+//	bool result = false;
+//	if (millisecondsTimeout > 0)
+//	{
+//		managementInterval_ = millisecondsTimeout;
+//		result = true;
+//	};
+//	return result;
 //}
 
+bool ThreadPool::setMaxIdleTime(int seconds)
+{
+	bool result = false;
+	if (seconds > 0)
+	{
+		maxIdleTime_ = seconds;
+		result = true;
+	};
+	return result;
+}
+
+int ThreadPool::getMaxIdleTime()
+{
+	return maxIdleTime_;
+}
