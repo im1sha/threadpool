@@ -100,32 +100,31 @@ void ThreadPool::keepManagement(ThreadPool* t)
 	{
 		std::exception_ptr exception;
 		try
-		{
-			while (t->keepManagementThreadRunning_)
-			{			
-				::EnterCriticalSection(&t->threadsSection_);
-				if(t->threadList_->size() > t->minThreads_) 
-				{
-					for (size_t i = 0; i < t->threadList_->size(); i++)
-					{				
-						WorkTask w = (*(t->threadList_))[i];
-						if (::time(nullptr) - w.getLastOperationTime() > t->maxIdleTime_)
-						{
-							w.close();
-							t->threadList_->erase(t->threadList_->begin() + i); // delete item # i
-						}
+		{							
+			::EnterCriticalSection(&t->threadsSection_);
+
+			std::vector<WorkTask> * list = t->threadList_;
+
+			if(list->size() > t->minThreads_)
+			{
+				for (size_t i = 0; i < list->size(); i++)
+				{				
+					WorkTask w = (*list)[i];
+					if (::time(nullptr) - w.getLastOperationTime() > t->maxIdleTime_)
+					{
+						w.close();
+						list->erase(list->begin() + i); // delete item # i
 					}
 				}
-
-				::LeaveCriticalSection(&t->threadsSection_);
-				::Sleep((DWORD) t->getMaxIdleTime());
-			}			
+			}							
 		}
 		catch(...)
 		{
 			exception = std::current_exception();
 			exception.~exception_ptr();
 		}
+		::LeaveCriticalSection(&t->threadsSection_);
+		::Sleep((DWORD) t->getMaxIdleTime());
 	}
 
 }
