@@ -13,6 +13,7 @@
 //#include <functional>
 
 #include <vector>
+#include <windows.h>
 #include <synchapi.h>
 #include "UnitOfWork.h"
 
@@ -23,11 +24,17 @@ public:
 	void enqueue(UnitOfWork task);
 private:
 	const int DEFAULT_THREADS = 4;
-	const DWORD defaultSpinCount = 4000;
-	CRITICAL_SECTION taskListCriticalSection;
+	const DWORD DEFAULT_SPIN_COUNT = 4000;
 
-	int create();
-	std::vector<UnitOfWork> taskList;
+
+	CRITICAL_SECTION enqueueSection_;
+
+	// Reference to queue
+	std::vector<UnitOfWork>* workQueue_ = nullptr;
+
+	// Reference to empty queue determiner 
+	CRITICAL_SECTION* emptySection_ = nullptr;
+
 };
 
 
