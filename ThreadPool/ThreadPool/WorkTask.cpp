@@ -1,49 +1,32 @@
 #include "WorkTask.h"
 
-
-
-WorkTask::WorkTask(std::vector<UnitOfWork>* workQueue, CRITICAL_SECTION* determinant)
+WorkTask::WorkTask(std::vector<UnitOfWork>* workQueue, HANDLE queueCountSemaphore, CRITICAL_SECTION queueSection, time_t timeout)
 {
 	workQueue_ = workQueue;
-	emptyDeterminant_ = determinant;
+	queueCountSemaphore_ = queueCountSemaphore;
+	queueSection_ = queueSection;
+	waitTimeout_ = timeout;
+	lastOperationTime_ = ::time(nullptr);
 
-	lastOperation_ = ::time(nullptr);
-
-	// thread start should be here 
-	runningThread_ = new uintptr_t();
-	// *runningThread_ = new Thread(ExecutePassedMethod);
-	// runningThread_->Start();
+	hThread_ = (HANDLE) ::_beginthreadex(
+		nullptr,		
+		0,				
+		(_beginthreadex_proc_type) this->startExecutableLoop,
+		this,
+		0,				
+		runningThread_);	
 }
-
 
 WorkTask::~WorkTask()
 {
-	if (runningThread_ != nullptr)
-	{
-		busy_ = false;
-		shouldKeepRunning_ = false;
-		if (/*runningThread_->ThreadState == ThreadState.WaitSleepJoin*/true)
-		{
-			//runningThread_->Interrupt();
-		}
-		//runningThread_->Join();
-
-		delete runningThread_;
-	}	
+	this->close();
 }
 
 void WorkTask::close() 
 {
-	shouldKeepRunning_ = false;
-	if (runningThread_ != nullptr)
-	{
-		if (/*runningThread_.ThreadState == ThreadState.WaitSleepJoin*/true)
-		{
-			/*runningThread_.Interrupt();*/
-		}
-		/*runningThread_.Join();*/
-		delete runningThread_;
-	}
+	busy_ = false;
+	shouldKeepRunning_ = false;	
+	this->interrupt();	
 }
 
 bool WorkTask::isBusy()
@@ -53,65 +36,113 @@ bool WorkTask::isBusy()
 
 time_t WorkTask::getLastOperationTime()
 {
-	return lastOperation_;
+	return lastOperationTime_;
 }
 
 UnitOfWork WorkTask::dequeue()
 {
 	UnitOfWork* t = nullptr;
+
+	::EnterCriticalSection(&queueSection_);
 	if ((workQueue_ != nullptr) && (workQueue_->size() != 0))
 	{
 		*t = (*workQueue_)[0];
 		workQueue_->erase(workQueue_->begin());
 	}
+
+	// TO-DO : add __finally to CriticalSections
+	::LeaveCriticalSection(&queueSection_);
+
 	return *t;
+}
+
+size_t WorkTask::getQueueSize() 
+{
+	size_t length = 0;
+
+	::EnterCriticalSection(&queueSection_);
+	if (workQueue_ != nullptr)
+	{
+		length = workQueue_->size();
+	}
+
+	// TO-DO : add __finally to CriticalSections
+	::LeaveCriticalSection(&queueSection_);
+
+	return length;
+}
+
+
+void WorkTask::interrupt() 
+{
+	if (runningThread_ != nullptr)
+	{
+		DWORD returnValue = ::WaitForSingleObject(hThread_, (DWORD) waitTimeout_);
+		switch (returnValue)
+		{
+		case WAIT_OBJECT_0:
+			// terminated itself
+			// no action needed
+			break;
+		default:
+			::TerminateThread(hThread_, -1);
+			break;
+		}
+		delete runningThread_;
+		if (hThread_ != nullptr)
+		{
+			::CloseHandle(hThread_);
+		}
+	}
 }
 
 void WorkTask::wakeUp()
 {
-//if (runningThread_.ThreadState == runningThread_.WaitSleepJoin)
-//{
-//	runningThread_.Interrupt();
-//}
-//isBusy_ = true;
+	this->interrupt();
+	busy_ = true;
 }
 
+unsigned WorkTask::startExecutableLoop(WorkTask task)
+{
+	unsigned exitCode = (&task != nullptr) ? 0 : -1;
 
-void WorkTask::startExecutableLoop()
-{	
+	if (exitCode != 0) 
+	{ 
+		::_endthreadex(exitCode); 
+	}
+	
 	UnitOfWork* u = nullptr;
-	while (shouldKeepRunning_)
+
+	while (task.shouldKeepRunning_)
 	{
 		std::exception_ptr exception;
 		try
 		{
-			while (workQueue_->size() > 0)
-			{			
-				*u = dequeue();	
+			while (task.getQueueSize() > 0)
+			{
+				*u = task.dequeue();
 
 				if ((u != nullptr) && (u->getMethod() != nullptr))
 				{
-					lastOperation_ = ::time(nullptr);
-					busy_ = true;
-					runUnitOfWork(u);
+					task.lastOperationTime_ = ::time(nullptr);
+					task.busy_ = true;
+
+					std::function<void(void*)> functionToExecute = u->getMethod();
+					void* functionParameters = u->getParemeters();
+
+					functionToExecute(functionParameters);
+
 					u->~UnitOfWork();
 				}
 			}
-
-			busy_ = false;
-			//Thread.Sleep(ManagementInterval);
+			task.busy_ = false;
 		}
 		catch (...)
 		{
 			exception = std::current_exception();
+			exception.~exception_ptr();
 		}
-		// exception will be destroyed here
 	}
+	
+	::_endthreadex(exitCode);
 }
-
-void WorkTask::runUnitOfWork(UnitOfWork* u)
-{
-
-
-}
-

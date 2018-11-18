@@ -2,17 +2,16 @@
 
 #include <windows.h>
 #include <vector>
-#include <process.h>
 #include <time.h>
 #include <exception>
 #include <synchapi.h>
-
+#include <process.h>
 #include "UnitOfWork.h"
 
 class WorkTask
 {
 public:
-	WorkTask(std::vector<UnitOfWork>* workQueue, CRITICAL_SECTION* determinant);
+	WorkTask(std::vector<UnitOfWork>* workQueue, HANDLE queueCountSemaphore, CRITICAL_SECTION queueSection, time_t timeout);
 
 	~WorkTask();
 
@@ -29,10 +28,19 @@ private:
 	std::vector<UnitOfWork>* workQueue_ = nullptr;
 
 	// Reference to empty queue ThreadPool determinant 
-	CRITICAL_SECTION* emptyDeterminant_ = nullptr;
+	HANDLE queueCountSemaphore_ = nullptr;
+
+	// Critical section providing atomic dequeue operations
+	CRITICAL_SECTION queueSection_;
 
 	// Current thread 
-	uintptr_t* runningThread_ = nullptr;
+	unsigned* runningThread_ = nullptr;
+
+	// Time before running thread closing on close request (ms)
+	time_t waitTimeout_ = 0;
+
+	// Thread's handle
+	HANDLE hThread_ = nullptr;
 
 	// Determines whether the thread preffered to continue running
 	bool shouldKeepRunning_ = true;
@@ -41,19 +49,22 @@ private:
 	bool busy_ = false;
 
 	// Time of last operation starting thread
-	time_t lastOperation_ = 0;
+	time_t lastOperationTime_ = 0;
 
 	// Retrieves first item from workQueue_
 	UnitOfWork dequeue();
+
+	size_t getQueueSize();
+
+	// Interupts thread
+	void interrupt();
 
 	// Interupts idling thread
 	void wakeUp();
 
 	// Executes task belongs to queue of all the tasks passed to ThreadPool  
-	void startExecutableLoop();
+	static unsigned startExecutableLoop(WorkTask args);
 
-	// Runs single task
-	void runUnitOfWork(UnitOfWork* u);
 };
 
 

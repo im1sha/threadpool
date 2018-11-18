@@ -3,22 +3,21 @@
 ThreadPool::ThreadPool(int maxThreads)
 {
 	workQueue_ = new std::vector<UnitOfWork>();
-	::InitializeCriticalSectionAndSpinCount(&enqueueSection_, DEFAULT_SPIN_COUNT);
+	::InitializeCriticalSectionAndSpinCount(&queueSection_, DEFAULT_SPIN_COUNT);
 }
 
 ThreadPool::~ThreadPool()
 {
-	::DeleteCriticalSection(&enqueueSection_);
+	::DeleteCriticalSection(&queueSection_);
 	delete workQueue_;
 }
 
 void ThreadPool::enqueue(UnitOfWork task)
 {
-	::EnterCriticalSection(&enqueueSection_);
+	::EnterCriticalSection(&queueSection_);
 	workQueue_->push_back(task);
-	::LeaveCriticalSection(&enqueueSection_);
+	::LeaveCriticalSection(&queueSection_);
 }
-
 
 //int ThreadPool::create()
 //{

@@ -22,19 +22,19 @@ public:
 	ThreadPool(int maxThreads);
 	~ThreadPool();	
 	void enqueue(UnitOfWork task);
+
 private:
 	const int DEFAULT_THREADS = 4;
 	const DWORD DEFAULT_SPIN_COUNT = 4000;
 
-
-	CRITICAL_SECTION enqueueSection_;
-
 	// Reference to queue
 	std::vector<UnitOfWork>* workQueue_ = nullptr;
 
-	// Reference to empty queue determiner 
-	CRITICAL_SECTION* emptySection_ = nullptr;
+	// Semaphor determining empty queue
+	HANDLE queueCountSemaphore = nullptr;
 
+	// Critical section providing atomic enque/dequeue operations
+	CRITICAL_SECTION queueSection_;
 };
 
 

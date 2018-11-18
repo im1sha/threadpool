@@ -5,18 +5,20 @@
 #endif
 
 #include <process.h>
+#include <functional>
 
 class UnitOfWork
 {
 public:
-	UnitOfWork(_beginthreadex_proc_type method, void* paremeters);
+	UnitOfWork(std::function<void(void *)> method, void * paremeters);
 	~UnitOfWork();
 
-	_beginthreadex_proc_type getMethod();
+	std::function<void(void *)> getMethod();
 	void* getParemeters();
 
 private:
-	_beginthreadex_proc_type method_; 
+	std::function<void(void *)> method_;
 	void* parameters_;
 };
+
 
