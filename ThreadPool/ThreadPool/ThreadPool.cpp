@@ -1,6 +1,6 @@
 #include "ThreadPool.h"
 
-ThreadPool::ThreadPool(int maxThreads = DEFAULT_MAX_THREADS, int maxIdleTime = DEFAULT_IDLE_TIME)
+ThreadPool::ThreadPool(int maxThreads, int maxIdleTime)
 {
 	this->setMinThreads(ThreadPool::DEFAULT_MIN_THREADS);
 	this->setMaxThreads(maxThreads);
