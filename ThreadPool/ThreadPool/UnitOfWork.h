@@ -14,7 +14,7 @@ public:
 	~UnitOfWork();
 
 	std::function<void(void *)> getMethod();
-	void* getParemeters();
+	void* getParameters();
 
 private:
 	std::function<void(void *)> method_;

@@ -14,8 +14,8 @@
 class Utils
 {
 public:
-	static std::wstring selectOpenedFile(HWND hWnd);
-	static std::wstring selectSavedFile(HWND hWnd);
+	static std::wstring selectOpeningFile(HWND hWnd);
+	static std::wstring selectSavingFile(HWND hWnd);
 	static std::vector<std::wstring> loadStringsFromFile(std::wstring fileName);
 	static void sortStrings(std::vector<std::wstring>* strings);
 	static bool writeToFile(std::wstring path, std::vector<std::wstring> strings);

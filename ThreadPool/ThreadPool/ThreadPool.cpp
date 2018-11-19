@@ -38,16 +38,13 @@ void ThreadPool::close()
 		managementThread_ = nullptr;
 	}	
 
-	// clone threadList_ 
 	::EnterCriticalSection(&threadsSection_);	
-	std::vector<WorkTask> workTasks(* threadList_);
-	::LeaveCriticalSection(&threadsSection_);
-
 	//  no need in ::WaitForMultipleObjects() : task.close() kills all the threads
-	for (WorkTask task : workTasks)
+	for (WorkTask task : *threadList_)
 	{
 		task.close();		
 	}	
+	::LeaveCriticalSection(&threadsSection_);
 
 	// free resources
 	this->deleteFields();
@@ -109,19 +106,16 @@ void ThreadPool::enqueue(UnitOfWork task)
 			break;
 		}
 	}	
-	::LeaveCriticalSection(&threadsSection_);
-
 	if (!idleThreadExists)
 	{
 		// new thread creating if conditions are correct
-		if (getThreadListSize() < getMaxThreads())
+		if (threadList_->size() < getMaxThreads())
 		{
-			::EnterCriticalSection(&threadsSection_);
-			WorkTask t(unitsList_, availableEvent_, unitsSection_, getMaxIdleTime()); 
-			threadList_->push_back(t);
-			::LeaveCriticalSection(&threadsSection_);
+			WorkTask t(unitsList_, availableEvent_, unitsSection_, maxIdleTime_); 
+			threadList_->push_back(t);			
 		}
-	}		
+	}	
+	::LeaveCriticalSection(&threadsSection_);	
 }
 
 void ThreadPool::keepManagement(ThreadPool* t)
@@ -136,9 +130,10 @@ void ThreadPool::keepManagement(ThreadPool* t)
 		try
 		{										
 			std::vector<WorkTask> * threads = t->threadList_;
-			int threadListSize = t->getThreadListSize();
-
+			
 			::EnterCriticalSection(&t->threadsSection_);
+
+			int threadListSize = threads->size();
 			if(threadListSize > t->getMinThreads())
 			{
 				for (size_t i = 0; i < threadListSize; i++)
@@ -168,13 +163,13 @@ void ThreadPool::keepManagement(ThreadPool* t)
 
 int ThreadPool::getTotalPendingTasks()
 {
-	return getUnitListSize();
+	return this->getUnitListSize();
 }
 
 int ThreadPool::getAvailableThreads()
 {
-	int maxThreads = getMaxThreads();
-	int threadListSize = getThreadListSize();
+	int maxThreads = this->getMaxThreads();
+	int threadListSize = this->getThreadListSize();
 	if (INVALID_RESULT == maxThreads || INVALID_RESULT == threadListSize)
 	{
 		return INVALID_RESULT;

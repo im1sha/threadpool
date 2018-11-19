@@ -1,6 +1,6 @@
 #include "Utils.h"
 
-std::wstring Utils::selectOpenedFile(HWND hWnd)
+std::wstring Utils::selectOpeningFile(HWND hWnd)
 {
 	wchar_t fileName[_MAX_PATH] = {};
 	OPENFILENAME openFileName;
@@ -21,7 +21,7 @@ std::wstring Utils::selectOpenedFile(HWND hWnd)
 	return std::wstring(fileName);
 }
 
-std::wstring Utils::selectSavedFile(HWND hWnd)
+std::wstring Utils::selectSavingFile(HWND hWnd)
 {
 	wchar_t fileName[_MAX_PATH] = {};
 	OPENFILENAME openFileName;

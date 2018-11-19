@@ -1,6 +1,6 @@
 #include "WorkTask.h"
 
-WorkTask::WorkTask(std::vector<UnitOfWork>* workQueue, HANDLE availableEvent, CRITICAL_SECTION queueSection, time_t timeout)
+WorkTask::WorkTask(std::vector<UnitOfWork>* workQueue, HANDLE availableEvent, CRITICAL_SECTION queueSection, int* timeout)
 {
 	workQueue_ = workQueue;
 	availableEvent_ = availableEvent;
@@ -21,17 +21,7 @@ void WorkTask::close()
 {
 	busy_ = false;
 	shouldKeepRunning_ = false;	
-	this->interrupt(thread_, waitTimeout_);
-}
-
-bool WorkTask::isBusy()
-{
-	return busy_;
-}
-
-time_t WorkTask::getLastOperationTime()
-{
-	return lastOperationTime_;
+	this->interrupt(thread_, (time_t) waitTimeout_);
 }
 
 UnitOfWork WorkTask::dequeue()
@@ -72,7 +62,7 @@ void WorkTask::interrupt(HANDLE hThread, time_t msWaitTimeout)
 
 void WorkTask::wakeUp()
 {
-	this->interrupt(thread_, waitTimeout_);
+	this->interrupt(thread_, (time_t) waitTimeout_);
 	busy_ = true;
 }
 
@@ -96,7 +86,7 @@ unsigned WorkTask::startExecutableLoop(WorkTask task)
 			{
 				while ((u == nullptr) && task.shouldKeepRunning_)
 				{
-					WaitForSingleObject(task.availableEvent_, (DWORD) task.waitTimeout_);
+					WaitForSingleObject(task.availableEvent_, (DWORD) *(task.waitTimeout_));
 					*u = task.dequeue();
 				}
 
@@ -106,7 +96,7 @@ unsigned WorkTask::startExecutableLoop(WorkTask task)
 
 					std::function<void(void *)> functionToExecute = u->getMethod();
 
-					void * functionParameters = u->getParemeters();
+					void * functionParameters = u->getParameters();
 
 					task.lastOperationTime_ = ::time(nullptr);
 
@@ -126,5 +116,15 @@ unsigned WorkTask::startExecutableLoop(WorkTask task)
 	}
 	
 	return 0;
+}
+
+bool WorkTask::isBusy()
+{
+	return busy_;
+}
+
+time_t WorkTask::getLastOperationTime()
+{
+	return lastOperationTime_;
 }
 

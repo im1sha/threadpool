@@ -11,7 +11,8 @@
 class WorkTask
 {
 public:
-	WorkTask(std::vector<UnitOfWork>* workQueue, HANDLE availableEvent, CRITICAL_SECTION queueSection, time_t timeout);
+
+	WorkTask(std::vector<UnitOfWork>* workQueue, HANDLE availableEvent, CRITICAL_SECTION queueSection, int* timeout);
 
 	~WorkTask();
 
@@ -44,7 +45,7 @@ private:
 	unsigned* runningThread_ = nullptr;
 
 	// Time before running thread closing on close request (ms)
-	time_t waitTimeout_ = 0;
+	int* waitTimeout_ = nullptr;
 
 	// Thread's handle
 	HANDLE thread_ = nullptr;

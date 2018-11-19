@@ -15,7 +15,7 @@ std::function<void(void *)> UnitOfWork::getMethod()
 	return method_;
 }
 
-void * UnitOfWork::getParemeters()
+void * UnitOfWork::getParameters()
 {
 	return parameters_;
 }
