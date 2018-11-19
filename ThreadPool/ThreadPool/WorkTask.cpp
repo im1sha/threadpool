@@ -8,8 +8,11 @@ WorkTask::WorkTask(std::vector<UnitOfWork>* workQueue, HANDLE availableEvent, CR
 	waitTimeout_ = timeout;
 	lastOperationTime_ = ::time(nullptr);
 
+	busy_ = true;
+	shouldKeepRunning_ = true;
+
 	thread_ = (HANDLE) ::_beginthreadex(nullptr, 0, (_beginthreadex_proc_type) WorkTask::startExecutableLoop, 
-		this, 0, runningThread_);	
+		(void *) this, 0, runningThread_);	
 }
 
 WorkTask::~WorkTask()
@@ -18,20 +21,20 @@ WorkTask::~WorkTask()
 }
 
 void WorkTask::close() 
-{
+{	
+	shouldKeepRunning_ = false;
 	busy_ = false;
-	shouldKeepRunning_ = false;	
 	this->interrupt(thread_, (time_t) waitTimeout_);
 }
 
-UnitOfWork WorkTask::dequeue()
+UnitOfWork* WorkTask::dequeue()
 {
-	UnitOfWork* t = nullptr;
+	UnitOfWork* result = nullptr;
 
 	::EnterCriticalSection(&queueSection_);
 	if ((workQueue_ != nullptr) && (workQueue_->size() != 0))
 	{
-		*t = (*workQueue_)[0];
+		result = new UnitOfWork((*workQueue_)[0]);
 		workQueue_->erase(workQueue_->begin());
 		if (workQueue_->size() == 0)
 		{
@@ -42,12 +45,12 @@ UnitOfWork WorkTask::dequeue()
 	// TO-DO : add __finally to CriticalSections
 	::LeaveCriticalSection(&queueSection_);
 
-	return *t;
+	return result;
 }
 
-void WorkTask::interrupt(HANDLE hThread, time_t msWaitTimeout)
+void WorkTask::interrupt(HANDLE hThread, time_t secondsWaitTimeout)
 {	
-	DWORD returnValue = ::WaitForSingleObject(hThread, (DWORD) msWaitTimeout);
+	DWORD returnValue = ::WaitForSingleObject(hThread, (DWORD) (1000 * secondsWaitTimeout));
 	
 	if (returnValue == WAIT_OBJECT_0) 
 	{
@@ -64,11 +67,13 @@ void WorkTask::wakeUp()
 {
 	this->interrupt(thread_, (time_t) waitTimeout_);
 	busy_ = true;
+
+	// _beginthreadex here
 }
 
-unsigned WorkTask::startExecutableLoop(WorkTask task)
+unsigned WorkTask::startExecutableLoop(WorkTask* task) // ? use WorkTask instead
 {
-	unsigned exitCode = (&task != nullptr) ? 0 : -1;
+	unsigned exitCode = (task != nullptr) ? 0 : -1;
 
 	if (exitCode != 0) 
 	{ 
@@ -76,37 +81,36 @@ unsigned WorkTask::startExecutableLoop(WorkTask task)
 	}
 	
 	UnitOfWork* u = nullptr;
-
-	while (task.shouldKeepRunning_)
+	while (task->shouldKeepRunning_)
 	{
+
 		std::exception_ptr exception;
 		try
 		{
-			while (task.shouldKeepRunning_)
+			while (task->shouldKeepRunning_)
 			{
-				while ((u == nullptr) && task.shouldKeepRunning_)
+				while ((u == nullptr) && task->shouldKeepRunning_)
 				{
-					WaitForSingleObject(task.availableEvent_, (DWORD) *(task.waitTimeout_));
-					*u = task.dequeue();
-				}
+					WaitForSingleObject(task->availableEvent_, (DWORD) 1000 * (*(task->waitTimeout_)));
+					u = task->dequeue();
+				}		
 
 				if ((u != nullptr) && (u->getMethod() != nullptr))
 				{			
-					task.busy_ = true;
+					task->busy_ = true;
 
 					std::function<void(void *)> functionToExecute = u->getMethod();
-
 					void * functionParameters = u->getParameters();
 
-					task.lastOperationTime_ = ::time(nullptr);
+					task->lastOperationTime_ = ::time(nullptr);
 
 					functionToExecute(functionParameters);
 
 					u->~UnitOfWork();
 					u = nullptr;
 				}
+				task->busy_ = false;
 			}
-			task.busy_ = false;
 		}
 		catch (...)
 		{

@@ -19,7 +19,7 @@ ThreadPool::ThreadPool(int maxThreads, int maxIdleTime)
 	keepManagementThreadRunning_ = true;
 
 	managementThread_ = (HANDLE) ::_beginthreadex(nullptr, 0, (_beginthreadex_proc_type) ThreadPool::keepManagement,
-		this, 0, managementThreadAddress_);
+		(void *) this, 0, managementThreadAddress_);
 }
 	
 
@@ -116,6 +116,8 @@ void ThreadPool::enqueue(UnitOfWork task)
 		}
 	}	
 	::LeaveCriticalSection(&threadsSection_);	
+	printf("pushed\n");
+
 }
 
 void ThreadPool::keepManagement(ThreadPool* t)
@@ -133,12 +135,16 @@ void ThreadPool::keepManagement(ThreadPool* t)
 			
 			::EnterCriticalSection(&t->threadsSection_);
 
-			int threadListSize = threads->size();
-			if(threadListSize > t->getMinThreads())
+			int threadListSize = (int) threads->size();
+
+			printf("1.>>%i\n", (int)threads->size());
+
+			if (threadListSize > t->getMinThreads())
 			{
 				for (size_t i = 0; i < threadListSize; i++)
 				{				
-					WorkTask w = (*threads)[i];
+					printf("2.>>%i\n", (int)threads->size());
+					WorkTask w = ((*threads)[i]);
 
 					// thread destroying if timeout is exceeded
 					if (::time(nullptr) - w.getLastOperationTime() > t->getMaxIdleTime())
@@ -156,7 +162,7 @@ void ThreadPool::keepManagement(ThreadPool* t)
 			exception = std::current_exception();
 			exception.~exception_ptr();
 		}
-		::Sleep((DWORD) t->getMaxIdleTime());
+		::Sleep((DWORD) 1000 * t->getMaxIdleTime());
 	}
 }
 

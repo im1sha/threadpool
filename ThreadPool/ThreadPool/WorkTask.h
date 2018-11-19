@@ -29,9 +29,10 @@ public:
 	time_t getLastOperationTime();
 
 	// Interupts thread
-	static void interrupt(HANDLE hThread, time_t msWaitTimeout);
+	static void interrupt(HANDLE hThread, time_t secondsWaitTimeout);
 
-private:
+// private:
+	
 	// Reference to Threadpool's queue
 	std::vector<UnitOfWork>* workQueue_ = nullptr;
 
@@ -44,7 +45,7 @@ private:
 	// Current thread 
 	unsigned* runningThread_ = nullptr;
 
-	// Time before running thread closing on close request (ms)
+	// Time before running thread closing on close request (seconds)
 	int* waitTimeout_ = nullptr;
 
 	// Thread's handle
@@ -60,10 +61,10 @@ private:
 	time_t lastOperationTime_ = 0;
 
 	// Retrieves first item from workQueue_
-	UnitOfWork dequeue();
+	UnitOfWork * dequeue();
 
 	// Executes task belongs to queue of all the tasks passed to ThreadPool  
-	static unsigned startExecutableLoop(WorkTask args);
+	static unsigned startExecutableLoop(WorkTask * args);
 
 };
 

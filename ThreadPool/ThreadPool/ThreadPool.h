@@ -23,7 +23,7 @@ class ThreadPool
 public:
 	ThreadPool(int maxThreads = DEFAULT_MAX_THREADS, int maxIdleTime = DEFAULT_IDLE_TIME);
 
-	~ThreadPool();	
+	~ThreadPool();
 
 	// Queues a function for execution. 
 	// The method executes when one of the ThreadPool's 
@@ -64,7 +64,7 @@ public:
 	// Gets max time thread's allowed to end execution
 	int getMaxIdleTime();
 
-private:
+//private:
 	
 	static const int DEFAULT_MAX_THREADS = 4;
 
