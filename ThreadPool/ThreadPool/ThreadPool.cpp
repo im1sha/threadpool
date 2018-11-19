@@ -2,6 +2,7 @@
 
 ThreadPool::ThreadPool(int maxThreads, int maxIdleTime)
 {
+	// fields initialization
 	this->setMinThreads(ThreadPool::DEFAULT_MIN_THREADS);
 	this->setMaxThreads(maxThreads);
 	this->setMaxIdleTime(maxIdleTime);
@@ -29,6 +30,7 @@ ThreadPool::~ThreadPool()
 
 void ThreadPool::close()
 {
+	// managementThread_ destroying
 	keepManagementThreadRunning_ = false;
 	if (managementThread_ != nullptr)
 	{
@@ -95,6 +97,7 @@ void ThreadPool::enqueue(UnitOfWork task)
 		::SetEvent(availableEvent_);
 	}
 		
+	// check if idling thread exists
 	bool idleThreadExists = false;
 	::EnterCriticalSection(&threadsSection_);
 	for (WorkTask t : *threadList_)
@@ -110,6 +113,7 @@ void ThreadPool::enqueue(UnitOfWork task)
 
 	if (!idleThreadExists)
 	{
+		// new thread creating if conditions are correct
 		if (getThreadListSize() < getMaxThreads())
 		{
 			::EnterCriticalSection(&threadsSection_);
@@ -140,9 +144,11 @@ void ThreadPool::keepManagement(ThreadPool* t)
 				for (size_t i = 0; i < threadListSize; i++)
 				{				
 					WorkTask w = (*threads)[i];
+
+					// thread destroying if timeout is exceeded
 					if (::time(nullptr) - w.getLastOperationTime() > t->getMaxIdleTime())
 					{
-						w.close();
+						w.close(); 
 						threads->erase(threads->begin() + i); // delete item # i 
 					}
 				}
@@ -202,7 +208,6 @@ int ThreadPool::getUnitListSize()
 
 	return length;
 }
-
 
 
 bool ThreadPool::setMaxThreads(int workerThreads)

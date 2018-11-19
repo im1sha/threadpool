@@ -111,8 +111,10 @@ private:
 	// that are running more than MaxIdleTime
 	static void keepManagement(ThreadPool* t);
 
+	// Gets size() on unitsList_
 	int getThreadListSize();
 
+	// Gets size() on threadList_
 	int getUnitListSize();
 
 	// Releases all allocated fields 
