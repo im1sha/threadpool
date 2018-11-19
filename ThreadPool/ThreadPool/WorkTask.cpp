@@ -55,35 +55,19 @@ UnitOfWork WorkTask::dequeue()
 	return *t;
 }
 
-void WorkTask::interrupt(HANDLE hThread, time_t waitTimeout)
+void WorkTask::interrupt(HANDLE hThread, time_t msWaitTimeout)
 {	
-	DWORD returnValue = ::WaitForSingleObject(hThread, (DWORD) waitTimeout);
+	DWORD returnValue = ::WaitForSingleObject(hThread, (DWORD) msWaitTimeout);
 	
-	switch (returnValue)
+	if (returnValue == WAIT_OBJECT_0) 
 	{
-	case WAIT_OBJECT_0:
 		// terminated itself
-		// no action needed
-		break;
-	default:
-		// ::_endthreadex(-1);
+		// no actions needed
+	}
+	else
+	{
 		::TerminateThread(hThread, -1);
-		break;
 	}
-
-	/*
-
-	if (runningThread_ != nullptr)
-	{
-		delete runningThread_;
-	}
-	if (hThread_ != nullptr)
-	{
-		::CloseHandle(hThread_);
-	}
-
-	*/
-	
 }
 
 void WorkTask::wakeUp()

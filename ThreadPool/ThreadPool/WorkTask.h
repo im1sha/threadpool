@@ -28,7 +28,7 @@ public:
 	time_t getLastOperationTime();
 
 	// Interupts thread
-	static void interrupt(HANDLE hThread, time_t waitTimeout);
+	static void interrupt(HANDLE hThread, time_t msWaitTimeout);
 
 private:
 	// Reference to Threadpool's queue
