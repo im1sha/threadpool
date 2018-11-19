@@ -8,7 +8,7 @@ ThreadPool::ThreadPool(int maxThreads, int maxIdleTime)
 	this->setMaxIdleTime(maxIdleTime);
 
 	unitsList_ = new std::vector<UnitOfWork>();
-	threadList_ = new std::vector<WorkTask>();
+	threadList_ = new std::vector<WorkTask*>();
 
 	// synchronizing items initialization
 	::InitializeCriticalSectionAndSpinCount(&unitsSection_, DEFAULT_SPIN_COUNT);
@@ -40,9 +40,12 @@ void ThreadPool::close()
 
 	::EnterCriticalSection(&threadsSection_);	
 	//  no need in ::WaitForMultipleObjects() : task.close() kills all the threads
-	for (WorkTask task : *threadList_)
+	for (WorkTask* task : *threadList_)
 	{
-		task.close();		
+		if (task != nullptr)
+		{
+			task->close();
+		}
 	}	
 	::LeaveCriticalSection(&threadsSection_);
 
@@ -97,11 +100,11 @@ void ThreadPool::enqueue(UnitOfWork task)
 	// check if idling thread exists
 	bool idleThreadExists = false;
 	::EnterCriticalSection(&threadsSection_);
-	for (WorkTask t : *threadList_)
+	for (WorkTask *t : *threadList_)
 	{
-		if (!t.isBusy())
+		if (!t->isBusy())
 		{
-			t.wakeUp();
+			t->wakeUp();
 			idleThreadExists = true;
 			break;
 		}
@@ -111,13 +114,11 @@ void ThreadPool::enqueue(UnitOfWork task)
 		// new thread creating if conditions are correct
 		if (threadList_->size() < getMaxThreads())
 		{
-			WorkTask t(unitsList_, availableEvent_, unitsSection_, maxIdleTime_); 
+			WorkTask *t = new WorkTask(unitsList_, availableEvent_, unitsSection_, maxIdleTime_); 
 			threadList_->push_back(t);			
 		}
 	}	
 	::LeaveCriticalSection(&threadsSection_);	
-	printf("pushed\n");
-
 }
 
 void ThreadPool::keepManagement(ThreadPool* t)
@@ -131,26 +132,25 @@ void ThreadPool::keepManagement(ThreadPool* t)
 		std::exception_ptr exception;		
 		try
 		{										
-			std::vector<WorkTask> * threads = t->threadList_;
+			std::vector<WorkTask*> * threads = t->threadList_;
 			
 			::EnterCriticalSection(&t->threadsSection_);
 
 			int threadListSize = (int) threads->size();
 
-			printf("1.>>%i\n", (int)threads->size());
-
 			if (threadListSize > t->getMinThreads())
 			{
 				for (size_t i = 0; i < threadListSize; i++)
 				{				
-					printf("2.>>%i\n", (int)threads->size());
-					WorkTask w = ((*threads)[i]);
+					WorkTask* w = (*threads)[i];
 
 					// thread destroying if timeout is exceeded
-					if (::time(nullptr) - w.getLastOperationTime() > t->getMaxIdleTime())
+					if (::time(nullptr) - w->getLastOperationTime() > t->getMaxIdleTime())
 					{
-						w.close(); 
+						w->close(); 
 						threads->erase(threads->begin() + i); // delete item # i 
+						threadListSize--;
+						i--;
 					}
 				}
 			}					
@@ -158,7 +158,7 @@ void ThreadPool::keepManagement(ThreadPool* t)
 			
 		}
 		catch(...)
-		{
+		{		
 			exception = std::current_exception();
 			exception.~exception_ptr();
 		}

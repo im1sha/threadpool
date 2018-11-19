@@ -33,60 +33,36 @@
 
 void foo1(void *params) 
 {
-	::Sleep(100);
-	printf("1xx");
+	printf("1\n");
 
 }
 void foo2(void *params) 
 {
-	::Sleep(1000);
-
-	printf("2xx");
+	printf("2\n");
 }
 void foo3(void *params) 
 {
-	::Sleep(6000);
-
-	printf("3xx");
+	printf("3\n");
 }
 void foo4(void *params) 
 {
-	printf("4xx");
+	printf("4\n");
 }
 void foo5(void *params) 
 {
-	printf("5xx");
+	printf("5\n");
 }
 void foo6(void *params) 
 {
-	printf("6xx");
+	printf("6\n");
 }
 void foo7(void *params) 
 {
-	printf("7xx");
+	printf("7\n");
 }
 
-//// Tasks to execute
-//std::vector<UnitOfWork> * unitsList_ = nullptr;
-//
-//// Event determining if queue of tasks contains 1 item at least
-//HANDLE availableEvent_ = nullptr;
-//
-//// Critical section providing atomic enque/dequeue operations with queue of UnitIfWork
-//CRITICAL_SECTION unitsSection_;
-//
-//
-//int * timeout = nullptr;
 int wmain() 
 {
-	/*unitsList_ = new std::vector<UnitOfWork>();
-	::InitializeCriticalSectionAndSpinCount(&unitsSection_, 4000);
-	availableEvent_ = ::CreateEvent(nullptr, true, false, nullptr);*/
-	/*
-	printf("HANDLE: %p\n", GetCurrentProcess());
-	printf("HANDLE: %p\n", GetCurrentThread());
-	*/	
-
 	/*
 	std::wstring source = Utils::selectOpenedFile(nullptr);
 	std::vector<std::wstring> strings = Utils::loadStringsFromFile(source);
@@ -95,30 +71,36 @@ int wmain()
 	bool result = Utils::writeToFile(destination, strings);
 	*/
 
-	//std::function<void(void*)> f1 = foo1;
-
-
 	UnitOfWork x1(foo1, nullptr);
 	UnitOfWork x2(foo2, nullptr);
 	UnitOfWork x3(foo3, nullptr);
+	UnitOfWork x4(foo4, nullptr);
+	UnitOfWork x5(foo5, nullptr);
+	UnitOfWork x6(foo6, nullptr);
+	UnitOfWork x7(foo7, nullptr);
 
 	std::vector <UnitOfWork> uList_ ;
 
 	uList_.push_back(x1);
 	uList_.push_back(x2);
 	uList_.push_back(x3);
+	uList_.push_back(x4);
+	uList_.push_back(x5);
+	uList_.push_back(x6);
+	uList_.push_back(x7);
 
-	//WorkTask w(unitsList_, availableEvent_,
-	//	unitsSection_, timeout);
-
-
-	
-	
-	
-	ThreadPool tpool(2, 1);
+	ThreadPool tpool(4, 1);
 	tpool.enqueue(uList_[0]);
 	tpool.enqueue(uList_[1]);
 	tpool.enqueue(uList_[2]);
+	tpool.enqueue(uList_[3]);
+	tpool.enqueue(uList_[4]);
+	tpool.enqueue(uList_[5]);
+	tpool.enqueue(uList_[6]);
+
+	//printf_s("\n\tGETCHAR\n");
+	//getchar();
+	tpool.close();
 
 	printf_s("\n\t===OK===\n\n");
 	getchar();	

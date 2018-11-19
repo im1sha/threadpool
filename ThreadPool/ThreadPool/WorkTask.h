@@ -34,13 +34,13 @@ public:
 // private:
 	
 	// Reference to Threadpool's queue
-	std::vector<UnitOfWork>* workQueue_ = nullptr;
+	std::vector<UnitOfWork>* unitsQueue_ = nullptr;
 
 	// Determines whether queue contains any element 
 	HANDLE availableEvent_ = nullptr;
 
 	// Critical section providing atomic dequeue operations
-	CRITICAL_SECTION queueSection_;
+	CRITICAL_SECTION unitsSection_;
 
 	// Current thread 
 	unsigned* runningThread_ = nullptr;

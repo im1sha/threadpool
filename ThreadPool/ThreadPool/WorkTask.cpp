@@ -2,9 +2,9 @@
 
 WorkTask::WorkTask(std::vector<UnitOfWork>* workQueue, HANDLE availableEvent, CRITICAL_SECTION queueSection, int* timeout)
 {
-	workQueue_ = workQueue;
+	unitsQueue_ = workQueue;
 	availableEvent_ = availableEvent;
-	queueSection_ = queueSection;
+	unitsSection_ = queueSection;
 	waitTimeout_ = timeout;
 	lastOperationTime_ = ::time(nullptr);
 
@@ -31,19 +31,19 @@ UnitOfWork* WorkTask::dequeue()
 {
 	UnitOfWork* result = nullptr;
 
-	::EnterCriticalSection(&queueSection_);
-	if ((workQueue_ != nullptr) && (workQueue_->size() != 0))
+	::EnterCriticalSection(&unitsSection_);
+	if ((unitsQueue_ != nullptr) && (unitsQueue_->size() != 0))
 	{
-		result = new UnitOfWork((*workQueue_)[0]);
-		workQueue_->erase(workQueue_->begin());
-		if (workQueue_->size() == 0)
+		result = new UnitOfWork((*unitsQueue_)[0]);
+		unitsQueue_->erase(unitsQueue_->begin());
+		if (unitsQueue_->size() == 0)
 		{
 			::ResetEvent(availableEvent_);
 		}
 	}
 
 	// TO-DO : add __finally to CriticalSections
-	::LeaveCriticalSection(&queueSection_);
+	::LeaveCriticalSection(&unitsSection_);
 
 	return result;
 }
@@ -71,7 +71,7 @@ void WorkTask::wakeUp()
 	// _beginthreadex here
 }
 
-unsigned WorkTask::startExecutableLoop(WorkTask* task) // ? use WorkTask instead
+unsigned WorkTask::startExecutableLoop(WorkTask* task) 
 {
 	unsigned exitCode = (task != nullptr) ? 0 : -1;
 
@@ -79,11 +79,9 @@ unsigned WorkTask::startExecutableLoop(WorkTask* task) // ? use WorkTask instead
 	{ 
 		return exitCode;
 	}
-	
 	UnitOfWork* u = nullptr;
 	while (task->shouldKeepRunning_)
 	{
-
 		std::exception_ptr exception;
 		try
 		{

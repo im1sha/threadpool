@@ -68,7 +68,7 @@ public:
 	
 	static const int DEFAULT_MAX_THREADS = 4;
 
-	static const int DEFAULT_MIN_THREADS = 1;
+	static const int DEFAULT_MIN_THREADS = 0;
 
 	static const DWORD DEFAULT_SPIN_COUNT = 4000;
 
@@ -78,7 +78,7 @@ public:
 	std::vector<UnitOfWork> * unitsList_ = nullptr;
 
 	// Running tasks that execute methods passed by ThreadPool.enqueue()  
-	std::vector<WorkTask> * threadList_ = nullptr;
+	std::vector<WorkTask*> * threadList_ = nullptr;
 
 	// Thread that controls executing of other running threads
 	HANDLE managementThread_ = nullptr;
