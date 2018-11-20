@@ -7,7 +7,7 @@
 //выходному потоку.¬ыходной поток дожидаетс€ всех сортированных частей и 
 //объедин€ет их методом сортирующего сли€ни€.
 
-void Sorter::loadAndSort()
+void Sorter::loadAndSort(void * params)
 {
 	const int TIMEOUT = 1;
 	const int TOTAL_THREADS = 5;
@@ -22,67 +22,58 @@ void Sorter::loadAndSort()
 
 	ThreadPool * threadpool = new ThreadPool(parts, TIMEOUT);
 
-	std::wstring source = Utils::selectOpeningFile(nullptr);
-	std::vector<std::wstring> * sourceStrings = new std::vector<std::wstring>(Utils::loadStringsFromFile(source));
-	std::vector<std::vector<std::wstring>*> * packsToSort = new std::vector<std::vector<std::wstring>*>(parts);
+	// =======================
 
-	int totalStrings = (int) sourceStrings->size();
+	std::wstring sourceFile = Utils::selectOpeningFile(nullptr);
+	std::vector<std::wstring> content(Utils::loadStringsFromFile(sourceFile));
+
+	// =======================
+
+	std::vector<std::vector<std::wstring>> packsToSort(parts);
+	int totalStrings = (int) content.size();
+
 
 	int * packsBounds = new int[parts + 1];
 	packsBounds[0] = 0;
-	for (size_t i = 1; i < parts + 1; i++)
+	for (size_t i = 1; i <= parts; i++)
 	{
 		packsBounds[i] = (totalStrings / parts) + packsBounds[i - 1];
 	}
-	packsBounds[parts] = totalStrings - 1;
-	
+	packsBounds[parts] = totalStrings - 1;	
+
 	for (size_t i = 0; i < parts; i++)
 	{
-		(*packsToSort)[i] = new std::vector<std::wstring>(
-			sourceStrings->begin() +
-			packsBounds[i],
-			sourceStrings->begin() + 
-			packsBounds[i + 1]);
+		packsToSort[i] = std::vector<std::wstring>(content.begin() + packsBounds[i], content.begin() + packsBounds[i + 1]);
 	}
 
 	for (size_t i = 0; i < parts; i++)
 	{ 
-		Utils::sortStrings((*packsToSort)[i]);
+		Utils::sortStrings(&(packsToSort[i]));
 	}
-
-	std::vector<std::wstring> * mergedStrings = new std::vector<std::wstring> (/*totalStrings*/);
+	
+	content.clear(); 
 	for (size_t i = 0; i < parts; i++)
 	{
-		??mergedStrings->insert((mergedStrings)->end(), (&packsToSort[i])->begin(), (&packsToSort[i])->end());
-	}
-
-	std::wstring ** readyToSortItems = Utils::vectorToArray(*mergedStrings);
-	Utils::mergeSort(readyToSortItems, totalStrings);
-	std::vector<std::wstring> readyStrings = Utils::arrayToVector(readyToSortItems, totalStrings);
-
-	std::wstring destination = Utils::selectSavingFile(nullptr);
-	bool result = Utils::writeToFile(destination, readyStrings);
-
-
-	// free variables
-	for (size_t i = 0; i < totalStrings; i++)
-	{
-		free(readyToSortItems[i]);
-	}
-	free(readyToSortItems);
-	delete sourceStrings;
-	delete[] packsBounds;
-	for (size_t i = 0; i < parts; i++)
-	{
-		for (size_t j = 0; j < ((*packsToSort)[i])->size(); j++)
+		for (size_t j = 0; j < packsToSort[i].size(); j++)
 		{
-			delete (*packsToSort)[i];
+			content.push_back(packsToSort[i][j]);
 		}
 	}
-	delete mergedStrings;
-	delete packsToSort;
+
+	// =======================
+
+	std::wstring * mergedArray = Utils::vectorToArray(content);
+	Utils::mergeSort(mergedArray, (int) content.size());
+	content = Utils::arrayToVector(mergedArray, (int) content.size());
+	std::wstring destination = Utils::selectSavingFile(nullptr);
+	bool result = Utils::writeToFile(destination, content);
+
+	// =======================
+
 	threadpool->closeSafely();
 	delete threadpool;
+	delete[] mergedArray;
+	delete[] packsBounds;
 }
 
 void Sorter::sort(void * params)

@@ -65,11 +65,13 @@ int wmain()
 	printf_s("\n\t===Started===\n\n");
 
 	Sorter *s = new Sorter();
-	s->loadAndSort();
+	s->loadAndSort(nullptr);
 	delete s;
 
 	printf_s("\n\t===Finished===\n\n");
 	getchar();	
+	getchar();
+	getchar();
 
 	return 0;
 }
