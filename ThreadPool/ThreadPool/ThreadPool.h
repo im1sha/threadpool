@@ -6,11 +6,6 @@
 
 #define INVALID_RESULT -1
 
-//#include <queue>
-//#include <memory>
-//#include <condition_variable>
-//#include <future>
-//#include <functional>
 #include <windows.h>
 #include <thread>
 #include <vector>
@@ -21,9 +16,9 @@
 class ThreadPool
 {
 public:
-	ThreadPool(int maxThreads = DEFAULT_MAX_THREADS, int maxIdleTime = DEFAULT_IDLE_TIME);
+	ThreadPool(int maxThreads = DEFAULT_MAX_THREADS, int maxIdleTime = DEFAULT_TIMEOUT);
 
-	~ThreadPool();
+	//~ThreadPool();
 
 	// Queues a function for execution. 
 	// The method executes when one of the ThreadPool's 
@@ -32,7 +27,12 @@ public:
 
 	// Destroys ThreadPool instance, 
 	// running threads and management thread
-	void close();
+	// All not started tasks will be ignored
+	void closeNow();
+
+	// Destroys ThreadPool instance, 
+	// running threads and management thread
+	void closeSafely();
 
 	// Gets total tasks number waiting for executing at the moment
 	int getTotalPendingTasks();
@@ -59,20 +59,20 @@ public:
 	int getMinThreads();
 
 	// Sets max time thread's allowed to end execution
-	bool setMaxIdleTime(int seconds);
+	bool setMaxTimeout(int seconds);
 
 	// Gets max time thread's allowed to end execution
-	int getMaxIdleTime();
+	int getMaxTimeout();
 
 private:
 	
 	static const int DEFAULT_MAX_THREADS = 4;
 
-	static const int DEFAULT_MIN_THREADS = 0;
+	static const int DEFAULT_MIN_THREADS = 1;
 
 	static const DWORD DEFAULT_SPIN_COUNT = 4000;
 
-	static const int DEFAULT_IDLE_TIME = 4; // (in seconds)
+	static const int DEFAULT_TIMEOUT = 4; // (in seconds)
 
 	// Tasks to execute
 	std::vector<UnitOfWork*> * unitsList_ = nullptr;
@@ -89,16 +89,27 @@ private:
 	// Detemines whether management Thread should continue running
 	bool keepManagementThreadRunning_ = true;
 
+	// Instance is about destroying.
+	// Caused by close() function or destructor call
 	bool isDestroyed_ = false;
+
+	// Gets isDestroyed_
+	bool isDestroyed();
 
 	// Event determining if queue of tasks contains 1 item at least
 	HANDLE* availableEvent_ = nullptr;
 
+	// Event determining if queue of tasks contains 0 items
+	HANDLE* emptyEvent_ = nullptr;
+
 	// Critical section providing atomic enque/dequeue operations with queue of UnitIfWork
-	CRITICAL_SECTION* unitsSection_;
+	CRITICAL_SECTION* unitsSection_ = nullptr;
 
 	// Critical section providing atomic enque/dequeue operations with queue of threads
 	CRITICAL_SECTION threadsSection_;
+
+	// Critical section providing atomic operations under isDestroyed_
+	CRITICAL_SECTION destoyedSection_;
 
 	// Min threads running at the moment
 	int* minThreads_ = nullptr;
@@ -107,7 +118,7 @@ private:
 	int* maxThreads_ = nullptr;
 
 	// Max idle thread time 
-	int* maxIdleTime_ = nullptr;
+	int* maxTimeout_ = nullptr;
 	
 	// Keeps tracking of threads 
 	// that are running more than MaxIdleTime

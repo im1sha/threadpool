@@ -10,8 +10,6 @@
 
 //  TO-DO LIST
 //
-//	4. »зучение создани€ и использовани€ потоков и механизмов синхронизации.
-//
 //	- –азработать очередь заданий, 
 //		в которую несколько потоков могут вставл€ть элементы атомарно.
 //
@@ -27,9 +25,9 @@
 //		выходному потоку.¬ыходной поток дожидаетс€ всех сортированных частей 
 //		и объедин€ет их методом сортирующего сли€ни€.
 
-//	UnitOfWork	- задание 
-//	WorkTask	- thread
-//	ThreadPool	- control class
+//	UnitOfWork	- delegate to execute 
+//	WorkTask	- thread wrapper
+//	ThreadPool	- class that's enqueues de 
 
 void foo1(void *params) 
 {
@@ -63,14 +61,16 @@ void foo7(void *params)
 
 int wmain() 
 {
-	/*
-	std::wstring source = Utils::selectOpenedFile(nullptr);
-	std::vector<std::wstring> strings = Utils::loadStringsFromFile(source);
-	Utils::sortStrings(&strings);
-	std::wstring destination = Utils::selectSavedFile(nullptr);
-	bool result = Utils::writeToFile(destination, strings);
-	*/
+	printf_s("\n\t===Started===\n\n");
+	//
+	//std::wstring source = Utils::selectOpeningFile(nullptr);
+	//std::vector<std::wstring> strings = Utils::loadStringsFromFile(source);
+	//Utils::sortStrings(&strings);
+	//std::wstring destination = Utils::selectSavingFile(nullptr);
+	//bool result = Utils::writeToFile(destination, strings);
+	//
 
+	
 	UnitOfWork x1(foo1, nullptr);
 	UnitOfWork x2(foo2, nullptr);
 	UnitOfWork x3(foo3, nullptr);
@@ -89,7 +89,7 @@ int wmain()
 	uList_.push_back(x6);
 	uList_.push_back(x7);
 
-	ThreadPool tpool(4, 1);
+	ThreadPool tpool(3, 1);
 	tpool.enqueue(uList_[0]);
 	tpool.enqueue(uList_[1]);
 	tpool.enqueue(uList_[2]);
@@ -105,11 +105,10 @@ int wmain()
 	tpool.enqueue(uList_[5]);
 	tpool.enqueue(uList_[6]);
 
-	//printf_s("\n\tGETCHAR\n");
-	//getchar();
-	tpool.close();
+	tpool.closeSafely();
+	
 
-	printf_s("\n\t===OK===\n\n");
+	printf_s("\n\t===Finished===\n\n");
 	getchar();	
 
 	return 0;

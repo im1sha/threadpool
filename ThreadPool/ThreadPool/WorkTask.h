@@ -14,9 +14,7 @@ class WorkTask
 {
 public:
 
-	WorkTask(std::vector<UnitOfWork*> * workQueue, HANDLE* availableEvent, CRITICAL_SECTION* queueSection, int* timeout);
-
-	~WorkTask();
+	WorkTask(std::vector<UnitOfWork*> * workQueue, HANDLE* availableEvent, HANDLE* emptyEvent, CRITICAL_SECTION* queueSection, int* timeout);
 
 	// Destroys executed task
 	void close();
@@ -25,7 +23,7 @@ public:
 	bool isBusy();
 
 	// Interupts idling thread
-	void wakeUp();
+	// void wakeUp();
 
 	// Gets time of last operation starting thread
 	time_t getLastOperationTime();
@@ -40,9 +38,12 @@ private:
 
 	// Determines whether queue contains any element 
 	HANDLE* availableEvent_ = nullptr;
+	
+	// Determines whether queue contains no elements
+	HANDLE* emptyEvent_ = nullptr;
 
 	// Critical section providing atomic dequeue operations
-	CRITICAL_SECTION* unitsSection_;
+	CRITICAL_SECTION* unitsSection_ = nullptr;
 
 	// Current thread 
 	unsigned* runningThread_ = nullptr;
@@ -59,6 +60,8 @@ private:
 	// Determines whether the thread executes the task
 	bool busy_ = false;
 
+	// Instance is about destroying.
+	// State caused by close() function or destructor call
 	bool isDestroyed_ = false;
 
 	// Time of last operation starting thread

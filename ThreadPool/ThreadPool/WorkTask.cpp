@@ -1,9 +1,10 @@
 #include "WorkTask.h"
 
-WorkTask::WorkTask(std::vector<UnitOfWork*> * workQueue, HANDLE* availableEvent, CRITICAL_SECTION * queueSection, int* timeout)
+WorkTask::WorkTask(std::vector<UnitOfWork*> * workQueue, HANDLE* availableEvent, HANDLE* emptyEvent, CRITICAL_SECTION * queueSection, int* timeout)
 {
 	unitsQueue_ = workQueue;
 	availableEvent_ = availableEvent;
+	emptyEvent_ = emptyEvent;
 	unitsSection_ = queueSection;
 	waitTimeout_ = timeout;
 	lastOperationTime_ = ::time(nullptr);
@@ -16,14 +17,14 @@ WorkTask::WorkTask(std::vector<UnitOfWork*> * workQueue, HANDLE* availableEvent,
 		(void *) this, 0, runningThread_);	
 }
 
-WorkTask::~WorkTask()
-{
-	if (!isDestroyed_)
-	{
-		isDestroyed_ = true;
-		this->close();
-	}
-}
+//WorkTask::~WorkTask()
+//{
+//	if (!isDestroyed_)
+//	{
+//		isDestroyed_ = true;
+//		this->close();
+//	}
+//}
 
 void WorkTask::close() 
 {	
@@ -45,6 +46,7 @@ UnitOfWork* WorkTask::dequeue()
 		if (unitsQueue_->size() == 0)
 		{
 			::ResetEvent(availableEvent_);
+			::SetEvent(emptyEvent_);
 		}
 	}
 	::LeaveCriticalSection(unitsSection_);
@@ -54,7 +56,7 @@ UnitOfWork* WorkTask::dequeue()
 
 void WorkTask::interrupt(HANDLE hThread, time_t secondsWaitTimeout)
 {	
-	//printf("interrupt call  %d\n", (int) hThread);
+	printf("interrupt call  %d\n", (int) hThread);
 	DWORD returnValue = ::WaitForSingleObject(hThread, (DWORD) (1000 * secondsWaitTimeout));
 	
 	if (returnValue == WAIT_OBJECT_0) 
@@ -65,23 +67,28 @@ void WorkTask::interrupt(HANDLE hThread, time_t secondsWaitTimeout)
 	else
 	{
 		::TerminateThread(hThread, -1);
-		//printf("terminated  %d", (int) hThread);
+		printf("terminated  %d", (int) hThread);
 	}
 }
 
-void WorkTask::wakeUp()
-{
-	this->interrupt(thread_, (time_t) waitTimeout_);
-	busy_ = true;
-
-	// _beginthreadex here
-}
+//void WorkTask::wakeUp()
+//{
+//	this->interrupt(thread_, (time_t) waitTimeout_);
+//
+//	busy_ = true;
+//	shouldKeepRunning_ = true;
+//
+//	// thread restarting
+//	thread_ = (HANDLE) ::_beginthreadex(nullptr, 0,
+//		(_beginthreadex_proc_type)WorkTask::startExecutableLoop,
+//		(void *)this, 0, runningThread_);
+//}
 
 unsigned WorkTask::startExecutableLoop(WorkTask* task) 
 {
 	unsigned exitCode = (task != nullptr) ? 0 : -1;
 
-	//printf("started %d\n", (int) task->thread_);
+	printf("started %d\n", (int) task->thread_);
 
 	if (exitCode != 0) 
 	{ 
@@ -121,10 +128,9 @@ unsigned WorkTask::startExecutableLoop(WorkTask* task)
 		catch (...)
 		{
 			exception = std::current_exception();
-			exception.~exception_ptr();
 		}
 	}
-	//printf("succeeded  %d\n", (int) task->thread_);
+	printf("succeeded  %d\n", (int) task->thread_);
 	return 0;
 }
 
