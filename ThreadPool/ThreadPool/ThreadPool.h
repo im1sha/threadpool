@@ -64,7 +64,7 @@ public:
 	// Gets max time thread's allowed to end execution
 	int getMaxIdleTime();
 
-//private:
+private:
 	
 	static const int DEFAULT_MAX_THREADS = 4;
 
@@ -75,7 +75,7 @@ public:
 	static const int DEFAULT_IDLE_TIME = 4; // (in seconds)
 
 	// Tasks to execute
-	std::vector<UnitOfWork> * unitsList_ = nullptr;
+	std::vector<UnitOfWork*> * unitsList_ = nullptr;
 
 	// Running tasks that execute methods passed by ThreadPool.enqueue()  
 	std::vector<WorkTask*> * threadList_ = nullptr;
@@ -88,6 +88,8 @@ public:
 
 	// Detemines whether management Thread should continue running
 	bool keepManagementThreadRunning_ = true;
+
+	bool isDestroyed_ = false;
 
 	// Event determining if queue of tasks contains 1 item at least
 	HANDLE availableEvent_ = nullptr;

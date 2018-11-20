@@ -7,7 +7,7 @@ ThreadPool::ThreadPool(int maxThreads, int maxIdleTime)
 	this->setMaxThreads(maxThreads);
 	this->setMaxIdleTime(maxIdleTime);
 
-	unitsList_ = new std::vector<UnitOfWork>();
+	unitsList_ = new std::vector<UnitOfWork*>();
 	threadList_ = new std::vector<WorkTask*>();
 
 	// synchronizing items initialization
@@ -18,18 +18,24 @@ ThreadPool::ThreadPool(int maxThreads, int maxIdleTime)
 	// start management thread
 	keepManagementThreadRunning_ = true;
 
-	managementThread_ = (HANDLE) ::_beginthreadex(nullptr, 0, (_beginthreadex_proc_type) ThreadPool::keepManagement,
+	managementThread_ = (HANDLE) ::_beginthreadex(nullptr, 0, 
+		(_beginthreadex_proc_type) ThreadPool::keepManagement,
 		(void *) this, 0, managementThreadAddress_);
 }
 	
 
 ThreadPool::~ThreadPool()
 {
-	this->close();	
+	if (!isDestroyed_)
+	{
+		isDestroyed_ = true;
+		this->close();		
+	}
 }
 
 void ThreadPool::close()
 {
+	isDestroyed_ = true;
 	// managementThread_ destroying
 	keepManagementThreadRunning_ = false;
 	if (managementThread_ != nullptr)
@@ -81,22 +87,22 @@ void ThreadPool::deleteFields()
 }
 
 
-void ThreadPool::enqueue(UnitOfWork task)
+void ThreadPool::enqueue(UnitOfWork t)
 {
 	// add task 
 	::EnterCriticalSection(&unitsSection_);
 	if (unitsList_ != nullptr)
 	{
+		UnitOfWork * task = new UnitOfWork(t);
 		unitsList_->push_back(task);
 	}	
-	::LeaveCriticalSection(&unitsSection_);
-
 	// signal to waiting for task thread if it's first task
 	if (getUnitListSize() == 1)
 	{
 		::SetEvent(availableEvent_);
 	}
-		
+	::LeaveCriticalSection(&unitsSection_);
+
 	// check if idling thread exists
 	bool idleThreadExists = false;
 	::EnterCriticalSection(&threadsSection_);
@@ -127,16 +133,18 @@ void ThreadPool::keepManagement(ThreadPool* t)
 	{
 		return;
 	}
+
+	printf("management thread started %d\n", (int)t->managementThread_);
+
 	while (t->keepManagementThreadRunning_)
 	{
 		std::exception_ptr exception;		
 		try
-		{										
-			std::vector<WorkTask*> * threads = t->threadList_;
-			
+		{																
 			::EnterCriticalSection(&t->threadsSection_);
 
-			int threadListSize = (int) threads->size();
+			std::vector<WorkTask*> * threads = t->threadList_;
+			int threadListSize = (int) t->getThreadListSize();
 
 			if (threadListSize > t->getMinThreads())
 			{
@@ -164,6 +172,7 @@ void ThreadPool::keepManagement(ThreadPool* t)
 		}
 		::Sleep((DWORD) 1000 * t->getMaxIdleTime());
 	}
+	printf("management thread succeeded %d\n", (int)t->managementThread_);
 }
 
 

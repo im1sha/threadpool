@@ -1,6 +1,6 @@
 #include "WorkTask.h"
 
-WorkTask::WorkTask(std::vector<UnitOfWork>* workQueue, HANDLE availableEvent, CRITICAL_SECTION queueSection, int* timeout)
+WorkTask::WorkTask(std::vector<UnitOfWork*> * workQueue, HANDLE availableEvent, CRITICAL_SECTION queueSection, int* timeout)
 {
 	unitsQueue_ = workQueue;
 	availableEvent_ = availableEvent;
@@ -11,17 +11,23 @@ WorkTask::WorkTask(std::vector<UnitOfWork>* workQueue, HANDLE availableEvent, CR
 	busy_ = true;
 	shouldKeepRunning_ = true;
 
-	thread_ = (HANDLE) ::_beginthreadex(nullptr, 0, (_beginthreadex_proc_type) WorkTask::startExecutableLoop, 
+	thread_ = (HANDLE) ::_beginthreadex(nullptr, 0, 
+		(_beginthreadex_proc_type) WorkTask::startExecutableLoop, 
 		(void *) this, 0, runningThread_);	
 }
 
 WorkTask::~WorkTask()
 {
-	this->close();
+	if (!isDestroyed_)
+	{
+		isDestroyed_ = true;
+		this->close();
+	}
 }
 
 void WorkTask::close() 
 {	
+	isDestroyed_ = true;
 	shouldKeepRunning_ = false;
 	busy_ = false;
 	this->interrupt(thread_, (time_t) waitTimeout_);
@@ -34,15 +40,13 @@ UnitOfWork* WorkTask::dequeue()
 	::EnterCriticalSection(&unitsSection_);
 	if ((unitsQueue_ != nullptr) && (unitsQueue_->size() != 0))
 	{
-		result = new UnitOfWork((*unitsQueue_)[0]);
+		result = new UnitOfWork(*((*unitsQueue_)[0]));
 		unitsQueue_->erase(unitsQueue_->begin());
 		if (unitsQueue_->size() == 0)
 		{
 			::ResetEvent(availableEvent_);
 		}
 	}
-
-	// TO-DO : add __finally to CriticalSections
 	::LeaveCriticalSection(&unitsSection_);
 
 	return result;
@@ -50,6 +54,7 @@ UnitOfWork* WorkTask::dequeue()
 
 void WorkTask::interrupt(HANDLE hThread, time_t secondsWaitTimeout)
 {	
+	printf("interrupt call  %d\n", (int) hThread);
 	DWORD returnValue = ::WaitForSingleObject(hThread, (DWORD) (1000 * secondsWaitTimeout));
 	
 	if (returnValue == WAIT_OBJECT_0) 
@@ -60,6 +65,7 @@ void WorkTask::interrupt(HANDLE hThread, time_t secondsWaitTimeout)
 	else
 	{
 		::TerminateThread(hThread, -1);
+		printf("terminated  %d", (int) hThread);
 	}
 }
 
@@ -75,6 +81,8 @@ unsigned WorkTask::startExecutableLoop(WorkTask* task)
 {
 	unsigned exitCode = (task != nullptr) ? 0 : -1;
 
+	printf("started %d\n", (int) task->thread_);
+
 	if (exitCode != 0) 
 	{ 
 		return exitCode;
@@ -89,7 +97,7 @@ unsigned WorkTask::startExecutableLoop(WorkTask* task)
 			{
 				while ((u == nullptr) && task->shouldKeepRunning_)
 				{
-					WaitForSingleObject(task->availableEvent_, (DWORD) 1000 * (*(task->waitTimeout_)));
+					WaitForSingleObject(task->availableEvent_, (DWORD) *(task->waitTimeout_) * 1000 /*INFINITY*/);
 					u = task->dequeue();
 				}		
 
@@ -104,7 +112,7 @@ unsigned WorkTask::startExecutableLoop(WorkTask* task)
 
 					functionToExecute(functionParameters);
 
-					u->~UnitOfWork();
+					delete u;
 					u = nullptr;
 				}
 				task->busy_ = false;
@@ -116,7 +124,7 @@ unsigned WorkTask::startExecutableLoop(WorkTask* task)
 			exception.~exception_ptr();
 		}
 	}
-	
+	printf("succeeded  %d\n", (int) task->thread_);
 	return 0;
 }
 

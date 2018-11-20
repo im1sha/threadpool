@@ -1,5 +1,7 @@
 #pragma once
 
+#define INVALID_RESULT -1
+
 #include <windows.h>
 #include <vector>
 #include <time.h>
@@ -12,7 +14,7 @@ class WorkTask
 {
 public:
 
-	WorkTask(std::vector<UnitOfWork>* workQueue, HANDLE availableEvent, CRITICAL_SECTION queueSection, int* timeout);
+	WorkTask(std::vector<UnitOfWork*> * workQueue, HANDLE availableEvent, CRITICAL_SECTION queueSection, int* timeout);
 
 	~WorkTask();
 
@@ -31,10 +33,10 @@ public:
 	// Interupts thread
 	static void interrupt(HANDLE hThread, time_t secondsWaitTimeout);
 
-// private:
+private:
 	
 	// Reference to Threadpool's queue
-	std::vector<UnitOfWork>* unitsQueue_ = nullptr;
+	std::vector<UnitOfWork*> * unitsQueue_ = nullptr;
 
 	// Determines whether queue contains any element 
 	HANDLE availableEvent_ = nullptr;
@@ -56,6 +58,8 @@ public:
 
 	// Determines whether the thread executes the task
 	bool busy_ = false;
+
+	bool isDestroyed_ = false;
 
 	// Time of last operation starting thread
 	time_t lastOperationTime_ = 0;
