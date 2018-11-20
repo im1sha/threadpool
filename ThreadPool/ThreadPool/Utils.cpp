@@ -98,3 +98,35 @@ bool Utils::writeToFile(std::wstring path, std::vector<std::wstring> strings)
 	return result;
 }
 
+void Utils::merge(std::vector<std::wstring> *a, int n, int m) {
+
+	int i, j, k;
+
+	std::vector<std::wstring> *x = new std::vector<std::wstring>(n);
+
+	std::fill(x->begin(), x->begin() + x->size() - 1, L"");
+
+	for (i = 0, j = m, k = 0; k < n; k++) {
+		(*x)[k] = 
+			j == n					? (*a)[i++]
+			: i == m				? (*a)[j++]
+			: (*a)[j] < (*a)[i]		? (*a)[j++]
+			: (*a)[i++];
+	}
+
+	for (i = 0; i < n; i++) {
+		(*a)[i] = (*x)[i];
+	}
+
+	delete x;
+
+}
+
+void Utils::margeSort(std::vector<std::wstring> *a, int n) {
+	if (n < 2)
+		return;
+	int m = n / 2;
+	margeSort(a, m);
+	margeSort(a + m, n - m);
+	merge(a, n, m);
+}

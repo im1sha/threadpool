@@ -10,6 +10,8 @@
 #include <codecvt>
 #include <algorithm>
 #include <io.h> 
+#include <stdio.h>
+#include <stdlib.h>
 
 class Utils
 {
@@ -19,5 +21,9 @@ public:
 	static std::vector<std::wstring> loadStringsFromFile(std::wstring fileName);
 	static void sortStrings(std::vector<std::wstring>* strings);
 	static bool writeToFile(std::wstring path, std::vector<std::wstring> strings);
+	static void margeSort(std::vector<std::wstring>* a, int n);
+
+private:
+	static void merge(std::vector<std::wstring>* a, int n, int m);
 };
 

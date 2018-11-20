@@ -62,51 +62,52 @@ void foo7(void *params)
 int wmain() 
 {
 	printf_s("\n\t===Started===\n\n");
-	//
-	//std::wstring source = Utils::selectOpeningFile(nullptr);
-	//std::vector<std::wstring> strings = Utils::loadStringsFromFile(source);
-	//Utils::sortStrings(&strings);
-	//std::wstring destination = Utils::selectSavingFile(nullptr);
-	//bool result = Utils::writeToFile(destination, strings);
-	//
-
 	
-	UnitOfWork x1(foo1, nullptr);
-	UnitOfWork x2(foo2, nullptr);
-	UnitOfWork x3(foo3, nullptr);
-	UnitOfWork x4(foo4, nullptr);
-	UnitOfWork x5(foo5, nullptr);
-	UnitOfWork x6(foo6, nullptr);
-	UnitOfWork x7(foo7, nullptr);
-
-	std::vector <UnitOfWork> uList_ ;
-
-	uList_.push_back(x1);
-	uList_.push_back(x2);
-	uList_.push_back(x3);
-	uList_.push_back(x4);
-	uList_.push_back(x5);
-	uList_.push_back(x6);
-	uList_.push_back(x7);
-
-	ThreadPool tpool(3, 1);
-	tpool.enqueue(uList_[0]);
-	tpool.enqueue(uList_[1]);
-	tpool.enqueue(uList_[2]);
-	tpool.enqueue(uList_[3]);
-	tpool.enqueue(uList_[4]);
-	tpool.enqueue(uList_[5]);
-	tpool.enqueue(uList_[6]);
-	tpool.enqueue(uList_[0]);
-	tpool.enqueue(uList_[1]);
-	tpool.enqueue(uList_[2]);
-	tpool.enqueue(uList_[3]);
-	tpool.enqueue(uList_[4]);
-	tpool.enqueue(uList_[5]);
-	tpool.enqueue(uList_[6]);
-
-	tpool.closeSafely();
+	std::wstring source = Utils::selectOpeningFile(nullptr);
+	std::vector<std::wstring> *strings = new std::vector<std::wstring>(Utils::loadStringsFromFile(source));
+	//Utils::sortStrings(strings);
+	Utils::margeSort(strings, (int) strings->size());
+	std::wstring destination = Utils::selectSavingFile(nullptr);
+	bool result = Utils::writeToFile(destination, *strings);	
 	
+
+
+	//UnitOfWork x1(foo1, nullptr);
+	//UnitOfWork x2(foo2, nullptr);
+	//UnitOfWork x3(foo3, nullptr);
+	//UnitOfWork x4(foo4, nullptr);
+	//UnitOfWork x5(foo5, nullptr);
+	//UnitOfWork x6(foo6, nullptr);
+	//UnitOfWork x7(foo7, nullptr);
+
+	//std::vector <UnitOfWork> uList_ ;
+
+	//uList_.push_back(x1);
+	//uList_.push_back(x2);
+	//uList_.push_back(x3);
+	//uList_.push_back(x4);
+	//uList_.push_back(x5);
+	//uList_.push_back(x6);
+	//uList_.push_back(x7);
+
+	//ThreadPool tpool(3, 1);
+	//tpool.enqueue(uList_[0]);
+	//tpool.enqueue(uList_[1]);
+	//tpool.enqueue(uList_[2]);
+	//tpool.enqueue(uList_[3]);
+	//tpool.enqueue(uList_[4]);
+	//tpool.enqueue(uList_[5]);
+	//tpool.enqueue(uList_[6]);
+	//tpool.enqueue(uList_[0]);
+	//tpool.enqueue(uList_[1]);
+	//tpool.enqueue(uList_[2]);
+	//tpool.enqueue(uList_[3]);
+	//tpool.enqueue(uList_[4]);
+	//tpool.enqueue(uList_[5]);
+	//tpool.enqueue(uList_[6]);
+
+	//tpool.closeSafely();
+	//
 
 	printf_s("\n\t===Finished===\n\n");
 	getchar();	

@@ -23,7 +23,7 @@ public:
 	// Queues a function for execution. 
 	// The method executes when one of the ThreadPool's 
 	// thread becomes available 
-	void enqueue(UnitOfWork task);
+	bool enqueue(UnitOfWork task);
 
 	// Destroys ThreadPool instance, 
 	// running threads and management thread

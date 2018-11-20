@@ -110,11 +110,11 @@ void ThreadPool::deleteFields()
 }
 
 
-void ThreadPool::enqueue(UnitOfWork t)
+bool ThreadPool::enqueue(UnitOfWork t)
 {
 	if (isDestroyed())
 	{
-		return;
+		return false;
 	}
 	// add task 
 	::EnterCriticalSection(unitsSection_);
@@ -156,6 +156,8 @@ void ThreadPool::enqueue(UnitOfWork t)
 	}	
 
 	::LeaveCriticalSection(&threadsSection_);	
+
+	return true;
 }
 
 bool ThreadPool::isDestroyed()
