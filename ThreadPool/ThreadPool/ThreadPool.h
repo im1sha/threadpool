@@ -92,10 +92,10 @@ private:
 	bool isDestroyed_ = false;
 
 	// Event determining if queue of tasks contains 1 item at least
-	HANDLE availableEvent_ = nullptr;
+	HANDLE* availableEvent_ = nullptr;
 
 	// Critical section providing atomic enque/dequeue operations with queue of UnitIfWork
-	CRITICAL_SECTION unitsSection_;
+	CRITICAL_SECTION* unitsSection_;
 
 	// Critical section providing atomic enque/dequeue operations with queue of threads
 	CRITICAL_SECTION threadsSection_;

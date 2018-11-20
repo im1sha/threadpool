@@ -1,6 +1,6 @@
 #include "WorkTask.h"
 
-WorkTask::WorkTask(std::vector<UnitOfWork*> * workQueue, HANDLE availableEvent, CRITICAL_SECTION queueSection, int* timeout)
+WorkTask::WorkTask(std::vector<UnitOfWork*> * workQueue, HANDLE* availableEvent, CRITICAL_SECTION * queueSection, int* timeout)
 {
 	unitsQueue_ = workQueue;
 	availableEvent_ = availableEvent;
@@ -37,7 +37,7 @@ UnitOfWork* WorkTask::dequeue()
 {
 	UnitOfWork* result = nullptr;
 
-	::EnterCriticalSection(&unitsSection_);
+	::EnterCriticalSection(unitsSection_);
 	if ((unitsQueue_ != nullptr) && (unitsQueue_->size() != 0))
 	{
 		result = new UnitOfWork(*((*unitsQueue_)[0]));
@@ -47,14 +47,14 @@ UnitOfWork* WorkTask::dequeue()
 			::ResetEvent(availableEvent_);
 		}
 	}
-	::LeaveCriticalSection(&unitsSection_);
+	::LeaveCriticalSection(unitsSection_);
 
 	return result;
 }
 
 void WorkTask::interrupt(HANDLE hThread, time_t secondsWaitTimeout)
 {	
-	printf("interrupt call  %d\n", (int) hThread);
+	//printf("interrupt call  %d\n", (int) hThread);
 	DWORD returnValue = ::WaitForSingleObject(hThread, (DWORD) (1000 * secondsWaitTimeout));
 	
 	if (returnValue == WAIT_OBJECT_0) 
@@ -65,7 +65,7 @@ void WorkTask::interrupt(HANDLE hThread, time_t secondsWaitTimeout)
 	else
 	{
 		::TerminateThread(hThread, -1);
-		printf("terminated  %d", (int) hThread);
+		//printf("terminated  %d", (int) hThread);
 	}
 }
 
@@ -81,7 +81,7 @@ unsigned WorkTask::startExecutableLoop(WorkTask* task)
 {
 	unsigned exitCode = (task != nullptr) ? 0 : -1;
 
-	printf("started %d\n", (int) task->thread_);
+	//printf("started %d\n", (int) task->thread_);
 
 	if (exitCode != 0) 
 	{ 
@@ -124,7 +124,7 @@ unsigned WorkTask::startExecutableLoop(WorkTask* task)
 			exception.~exception_ptr();
 		}
 	}
-	printf("succeeded  %d\n", (int) task->thread_);
+	//printf("succeeded  %d\n", (int) task->thread_);
 	return 0;
 }
 

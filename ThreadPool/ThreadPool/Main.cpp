@@ -97,6 +97,13 @@ int wmain()
 	tpool.enqueue(uList_[4]);
 	tpool.enqueue(uList_[5]);
 	tpool.enqueue(uList_[6]);
+	tpool.enqueue(uList_[0]);
+	tpool.enqueue(uList_[1]);
+	tpool.enqueue(uList_[2]);
+	tpool.enqueue(uList_[3]);
+	tpool.enqueue(uList_[4]);
+	tpool.enqueue(uList_[5]);
+	tpool.enqueue(uList_[6]);
 
 	//printf_s("\n\tGETCHAR\n");
 	//getchar();

@@ -14,7 +14,7 @@ class WorkTask
 {
 public:
 
-	WorkTask(std::vector<UnitOfWork*> * workQueue, HANDLE availableEvent, CRITICAL_SECTION queueSection, int* timeout);
+	WorkTask(std::vector<UnitOfWork*> * workQueue, HANDLE* availableEvent, CRITICAL_SECTION* queueSection, int* timeout);
 
 	~WorkTask();
 
@@ -39,10 +39,10 @@ private:
 	std::vector<UnitOfWork*> * unitsQueue_ = nullptr;
 
 	// Determines whether queue contains any element 
-	HANDLE availableEvent_ = nullptr;
+	HANDLE* availableEvent_ = nullptr;
 
 	// Critical section providing atomic dequeue operations
-	CRITICAL_SECTION unitsSection_;
+	CRITICAL_SECTION* unitsSection_;
 
 	// Current thread 
 	unsigned* runningThread_ = nullptr;

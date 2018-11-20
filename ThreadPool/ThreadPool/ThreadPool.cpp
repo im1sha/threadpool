@@ -11,9 +11,11 @@ ThreadPool::ThreadPool(int maxThreads, int maxIdleTime)
 	threadList_ = new std::vector<WorkTask*>();
 
 	// synchronizing items initialization
-	::InitializeCriticalSectionAndSpinCount(&unitsSection_, DEFAULT_SPIN_COUNT);
+	unitsSection_ = new CRITICAL_SECTION();
+	::InitializeCriticalSectionAndSpinCount(unitsSection_, DEFAULT_SPIN_COUNT);
 	::InitializeCriticalSectionAndSpinCount(&threadsSection_, DEFAULT_SPIN_COUNT);
-	availableEvent_ = ::CreateEvent(nullptr, true, false, nullptr);
+	availableEvent_ = new HANDLE();
+	*availableEvent_ = ::CreateEvent(nullptr, true, false, nullptr);
 
 	// start management thread
 	keepManagementThreadRunning_ = true;
@@ -57,9 +59,11 @@ void ThreadPool::close()
 
 	// free resources
 	this->deleteFields();
-	::DeleteCriticalSection(&unitsSection_);
+	::DeleteCriticalSection(unitsSection_);
 	::DeleteCriticalSection(&threadsSection_);
-	::CloseHandle(availableEvent_);
+	delete unitsSection_;
+	::CloseHandle(*availableEvent_);
+	delete availableEvent_;
 }
 
 void ThreadPool::deleteFields()
@@ -90,7 +94,7 @@ void ThreadPool::deleteFields()
 void ThreadPool::enqueue(UnitOfWork t)
 {
 	// add task 
-	::EnterCriticalSection(&unitsSection_);
+	::EnterCriticalSection(unitsSection_);
 	if (unitsList_ != nullptr)
 	{
 		UnitOfWork * task = new UnitOfWork(t);
@@ -101,7 +105,7 @@ void ThreadPool::enqueue(UnitOfWork t)
 	{
 		::SetEvent(availableEvent_);
 	}
-	::LeaveCriticalSection(&unitsSection_);
+	::LeaveCriticalSection(unitsSection_);
 
 	// check if idling thread exists
 	bool idleThreadExists = false;
@@ -134,7 +138,7 @@ void ThreadPool::keepManagement(ThreadPool* t)
 		return;
 	}
 
-	printf("management thread started %d\n", (int)t->managementThread_);
+	//printf("management thread started %d\n", (int)t->managementThread_);
 
 	while (t->keepManagementThreadRunning_)
 	{
@@ -172,7 +176,7 @@ void ThreadPool::keepManagement(ThreadPool* t)
 		}
 		::Sleep((DWORD) 1000 * t->getMaxIdleTime());
 	}
-	printf("management thread succeeded %d\n", (int)t->managementThread_);
+	//printf("management thread succeeded %d\n", (int)t->managementThread_);
 }
 
 
@@ -209,12 +213,12 @@ int ThreadPool::getUnitListSize()
 {
 	int length = INVALID_RESULT;
 
-	::EnterCriticalSection(&unitsSection_);
+	::EnterCriticalSection(unitsSection_);
 	if (unitsList_ != nullptr)
 	{
 		length = (int)unitsList_->size();
 	}
-	::LeaveCriticalSection(&unitsSection_);
+	::LeaveCriticalSection(unitsSection_);
 
 	return length;
 }
