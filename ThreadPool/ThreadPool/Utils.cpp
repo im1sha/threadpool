@@ -106,11 +106,11 @@ void Utils::merge(std::wstring ** a, int n, int m)
 
 	for (i = 0, j = m, k = 0; k < n; k++) 
 	{
-		x[k] = 
-			j == n								? a[i++]
-			: i == m							? a[j++]
-			: (*a[j]).compare(*a[i]) < 0		? a[j++]
-			: a[i++];
+		(x[k]) = 
+			j == n								? (a[i++])
+			: i == m							? (a[j++])
+			: (*a[j]).compare(*a[i]) < 0		? (a[j++])
+			: (a[i++]);
 	}
 
 	for (i = 0; i < n; i++) 
