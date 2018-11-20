@@ -66,11 +66,22 @@ int wmain()
 	std::wstring source = Utils::selectOpeningFile(nullptr);
 	std::vector<std::wstring> *strings = new std::vector<std::wstring>(Utils::loadStringsFromFile(source));
 	//Utils::sortStrings(strings);
-	Utils::margeSort(strings, (int) strings->size());
-	std::wstring destination = Utils::selectSavingFile(nullptr);
-	bool result = Utils::writeToFile(destination, *strings);	
-	
+	int len = strings->size();
+	std::wstring ** arr = Utils::vectorToArray(*strings);
+	Utils::mergeSort(arr, (int) strings->size());
+	delete strings;
+	std::vector<std::wstring> strings2 = Utils::arrayToVector(arr, len);
 
+	std::wstring destination = Utils::selectSavingFile(nullptr);
+	bool result = Utils::writeToFile(destination, strings2);	
+	
+	free(arr);
+
+
+
+	/*std::vector<std::wstring> *x = new std::vector<std::wstring>(1, L"");
+	std::vector<std::wstring> *x2 = new std::vector<std::wstring>(1, L"");
+	x[00] = x2[0];*/
 
 	//UnitOfWork x1(foo1, nullptr);
 	//UnitOfWork x2(foo2, nullptr);

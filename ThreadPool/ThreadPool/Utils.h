@@ -12,6 +12,7 @@
 #include <io.h> 
 #include <stdio.h>
 #include <stdlib.h>
+#include <iostream>
 
 class Utils
 {
@@ -21,9 +22,10 @@ public:
 	static std::vector<std::wstring> loadStringsFromFile(std::wstring fileName);
 	static void sortStrings(std::vector<std::wstring>* strings);
 	static bool writeToFile(std::wstring path, std::vector<std::wstring> strings);
-	static void margeSort(std::vector<std::wstring>* a, int n);
-
+	static void mergeSort(std::wstring** a, int n);
+	static std::wstring** vectorToArray(std::vector<std::wstring> v);
+	static std::vector<std::wstring> arrayToVector(std::wstring** a, int length);
 private:
-	static void merge(std::vector<std::wstring>* a, int n, int m);
+	static void merge(std::wstring** a, int n, int m);
 };
 

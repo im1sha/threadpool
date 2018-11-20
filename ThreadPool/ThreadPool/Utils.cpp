@@ -98,35 +98,59 @@ bool Utils::writeToFile(std::wstring path, std::vector<std::wstring> strings)
 	return result;
 }
 
-void Utils::merge(std::vector<std::wstring> *a, int n, int m) {
-
+void Utils::merge(std::wstring ** a, int n, int m) 
+{
 	int i, j, k;
 
-	std::vector<std::wstring> *x = new std::vector<std::wstring>(n);
+	std::wstring ** x = (std::wstring **)calloc(n, sizeof(std::wstring*));
 
-	std::fill(x->begin(), x->begin() + x->size() - 1, L"");
-
-	for (i = 0, j = m, k = 0; k < n; k++) {
-		(*x)[k] = 
-			j == n					? (*a)[i++]
-			: i == m				? (*a)[j++]
-			: (*a)[j] < (*a)[i]		? (*a)[j++]
-			: (*a)[i++];
+	for (i = 0, j = m, k = 0; k < n; k++) 
+	{
+		x[k] = 
+			j == n								? a[i++]
+			: i == m							? a[j++]
+			: (*a[j]).compare(*a[i]) < 0		? a[j++]
+			: a[i++];
 	}
 
-	for (i = 0; i < n; i++) {
-		(*a)[i] = (*x)[i];
+	for (i = 0; i < n; i++) 
+	{
+		a[i] = x[i];
 	}
 
 	delete x;
-
 }
 
-void Utils::margeSort(std::vector<std::wstring> *a, int n) {
+void Utils::mergeSort(std::wstring **a, int n) {
 	if (n < 2)
 		return;
 	int m = n / 2;
-	margeSort(a, m);
-	margeSort(a + m, n - m);
+	mergeSort(a, m);
+	mergeSort(a + m, n - m);
 	merge(a, n, m);
+}
+
+std::wstring ** Utils::vectorToArray(std::vector<std::wstring> v)
+{
+	std::wstring ** arr = (std::wstring **)calloc(v.size(), sizeof(std::wstring*));
+
+	for (size_t i = 0; i < v.size(); i++)
+	{
+		std::wstring * tmp = new std::wstring(v[i]);
+		arr[i] = tmp;
+	}
+
+	return arr;
+}
+
+std::vector<std::wstring> Utils::arrayToVector(std::wstring ** a, int length)
+{
+	auto result = std::vector<std::wstring>();
+
+	for (size_t i = 0; i < length; i++)
+	{
+		result.push_back(*(a[i]));
+	}
+
+	return result;
 }
