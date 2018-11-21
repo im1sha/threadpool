@@ -1,6 +1,6 @@
 #include "UnitOfWork.h"
 
-UnitOfWork::UnitOfWork(std::function<void(void **)> method, void ** parameters, int timeoutInMs)
+UnitOfWork::UnitOfWork(std::function<void(void **)> method, void ** parameters, time_t timeoutInMs)
 {
 	this->method_ = method;
 	this->parameters_ = parameters;

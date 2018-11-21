@@ -11,7 +11,7 @@
 class UnitOfWork
 {
 public:
-	UnitOfWork(std::function<void(void **)> method, void ** paremeters, int timeoutInMs = INFINITE);
+	UnitOfWork(std::function<void(void **)> method, void ** paremeters = nullptr, time_t timeoutInMs = INFINITE);
 	~UnitOfWork();
 
 	std::function<void(void **)> getMethod();

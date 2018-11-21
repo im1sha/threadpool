@@ -20,12 +20,12 @@ WorkTask::WorkTask(std::vector<UnitOfWork*> * unitList, HANDLE* availableEvent, 
 }
 
 
-void WorkTask::close(bool force, time_t timeout)
+void WorkTask::close(bool forced, time_t timeout)
 {		
 	::EnterCriticalSection(localFieldSection_);
 	
 	time_t prefferedTimeout = getTimeoutInMs();
-	if (force)
+	if (forced)
 	{
 		if (timeout >= 0 || timeout == INFINITE)
 		{

@@ -31,6 +31,7 @@ public:
 
 	// Destroys ThreadPool instance, 
 	// running threads and management thread
+	// All queued tasks will be waited for terminations
 	void closeSafely();
 
 	// Gets total tasks number waiting for executing at the moment
@@ -76,6 +77,8 @@ private:
 
 	static const int DEFAULT_TIMEOUT_IN_MS = INFINITE; // (in ms)
 
+	static const int DEFAULT_MANAGE_INTERVAL_IN_MS = 100; // (in ms)
+
 	// Tasks to execute
 	std::vector<UnitOfWork*> * unitsList_ = nullptr;
 
@@ -88,12 +91,13 @@ private:
 	// ManagementThread_'s address
 	unsigned* managementThreadAddress_ = nullptr;
 
-	// Detemines whether management Thread should continue running
-	bool keepManagementThreadRunning_ = true;
+	// Instance is about destroying.
+	// Caused by interrupt() function 
+	bool isDestroyed_ = false;
 
 	// Instance is about destroying.
-	// Caused by close() function or destructor call
-	bool isDestroyed_ = false;
+	// Caused by closeSafely() function call 
+	bool isDestroySafe_ = false;
 
 	// Event determining if queue of units contains 1 item at least
 	HANDLE* availableEvent_ = nullptr;
@@ -120,7 +124,10 @@ private:
 	int maxThreads_ = DEFAULT_MAX_THREADS;
 
 	// Max idle thread time 
-	time_t timeout_ = INFINITE;
+	time_t timeout_ = DEFAULT_TIMEOUT_IN_MS;
+
+	// interval between manage
+	time_t trackingInterval_ = DEFAULT_MANAGE_INTERVAL_IN_MS;
 
 	// Keeps tracking of threads 
 	// that are running more than MaxIdleTime
@@ -136,13 +143,19 @@ private:
 	void releaseMemory();
 
 	// Kills all running tasks
-	void killThreads(bool force = false, time_t timeout = INFINITE);
+	void killThreads(bool forced = false, time_t timeout = INFINITE);
 
 	// Atomic getter under isDestroyed_
 	bool isDestroyed();
 
+	// Destructs current instance
 	void close();
 
+	// Atomic getter under isDestroySafe_
+	bool isDestroySafe();
+
+	// Returns trackingInterval_
+	time_t getTrackingInterval();
 };
 
 

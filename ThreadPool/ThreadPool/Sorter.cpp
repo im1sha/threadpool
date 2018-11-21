@@ -9,6 +9,7 @@
 
 void Sorter::loadAndSort(void ** params)
 {
+	printf("loadAndSort started\n");
 	ThreadPool * threadPool = (ThreadPool *) params[0];
 	if (threadPool == nullptr)
 	{

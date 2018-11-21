@@ -17,7 +17,7 @@ public:
 	WorkTask(std::vector<UnitOfWork*> * unitList, HANDLE* availableEvent, HANDLE* emptyEvent, CRITICAL_SECTION* queueSection);
 
 	// Destroys executed task
-	void close(bool force = false, time_t timeout = INFINITE);
+	void close(bool forced = false, time_t timeout = INFINITE);
 
 	// Determines whether the thread executes the task
 	bool isBusy();
