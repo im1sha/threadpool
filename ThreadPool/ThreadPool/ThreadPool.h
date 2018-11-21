@@ -16,7 +16,8 @@
 class ThreadPool
 {
 public:
-	ThreadPool(int maxThreads = DEFAULT_MAX_THREADS, int maxIdleTime = DEFAULT_TIMEOUT);
+
+	ThreadPool(int maxThreads = DEFAULT_MAX_THREADS, int timeout = DEFAULT_TIMEOUT_IN_MS);
 
 	// Queues a function for execution. 
 	// The method executes when one of the ThreadPool's 
@@ -26,9 +27,8 @@ public:
 	// Destroys ThreadPool instance, 
 	// running threads and management thread
 	// All not started tasks will be ignored
-	void closeNow();
+	void interrupt();
 
-	
 	// Destroys ThreadPool instance, 
 	// running threads and management thread
 	void closeSafely();
@@ -58,10 +58,13 @@ public:
 	int getMinThreads();
 
 	// Sets max time thread's allowed to end execution
-	bool setMaxTimeout(int seconds);
+	bool setTimeoutInMs(time_t milliseconds);
 
 	// Gets max time thread's allowed to end execution
-	int getMaxTimeout();
+	time_t getTimeoutInMs();
+	
+	// Gets max time thread's allowed to end execution
+	time_t getTimeoutInSeconds();
 
 private:
 	
@@ -71,7 +74,7 @@ private:
 
 	static const DWORD DEFAULT_SPIN_COUNT = 4000;
 
-	static const int DEFAULT_TIMEOUT = 4; // (in seconds)
+	static const int DEFAULT_TIMEOUT_IN_MS = INFINITE; // (in ms)
 
 	// Tasks to execute
 	std::vector<UnitOfWork*> * unitsList_ = nullptr;
@@ -92,17 +95,11 @@ private:
 	// Caused by close() function or destructor call
 	bool isDestroyed_ = false;
 
-	// Gets isDestroyed_
-	bool isDestroyed();
-
 	// Event determining if queue of units contains 1 item at least
 	HANDLE* availableEvent_ = nullptr;
 
 	// Event determining if queue of tasks contains 0 items
 	HANDLE* emptyEvent_ = nullptr;
-
-	// Event determining if managementThread finished
-	HANDLE* finishedEvent_ = nullptr;
 
 	// Event determining if managementThread started
 	HANDLE* startedEvent_ = nullptr;
@@ -111,37 +108,40 @@ private:
 	CRITICAL_SECTION* unitsSection_ = nullptr;
 
 	// Critical section providing atomic enque/dequeue operations with queue of threads
-	CRITICAL_SECTION* threadsSection_;
+	CRITICAL_SECTION* threadsSection_ = nullptr;
 
-	// Critical section providing atomic operations under isDestroyed_
-	CRITICAL_SECTION* destoyedSection_;
-
-	// Guards isManagementThreadRunning_
-	CRITICAL_SECTION* managementSection_;
+	// Guards fields
+	CRITICAL_SECTION* fieldsSection_ = nullptr;
 
 	// Min threads running at the moment
-	int* minThreads_ = nullptr;
+	int minThreads_ = 1;
 
 	// Max threads running at the moment
-	int* maxThreads_ = nullptr;
+	int maxThreads_ = DEFAULT_MAX_THREADS;
 
 	// Max idle thread time 
-	int* maxTimeout_ = nullptr;
+	time_t timeout_ = INFINITE;
 
 	// Keeps tracking of threads 
 	// that are running more than MaxIdleTime
 	static void keepManagement(ThreadPool* t);
 
-	// Gets size() on unitsList_
+	// Gets size() on unitsList_ as atomic operation
 	int getThreadListSize();
 
-	// Gets size() on threadList_
+	// Gets size() on threadList_ as atomic operation
 	int getUnitListSize();
 
 	// Releases all allocated fields 
 	void releaseMemory();
 
-	void killThreads();
+	// Kills all running tasks
+	void killThreads(bool force = false, time_t timeout = INFINITE);
+
+	// Atomic getter under isDestroyed_
+	bool isDestroyed();
+
+	void close();
 
 };
 

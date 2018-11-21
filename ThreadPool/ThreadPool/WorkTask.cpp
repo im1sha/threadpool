@@ -20,13 +20,22 @@ WorkTask::WorkTask(std::vector<UnitOfWork*> * unitList, HANDLE* availableEvent, 
 }
 
 
-void WorkTask::close() 
-{	
+void WorkTask::close(bool force, time_t timeout)
+{		
 	::EnterCriticalSection(localFieldSection_);
+	
+	time_t prefferedTimeout = getTimeoutInMs();
+	if (force)
+	{
+		if (timeout >= 0 || timeout == INFINITE)
+		{
+			prefferedTimeout = timeout;
+		}
+	}
 
 	shouldKeepRunning_ = false;
 	busy_ = false;
-	WorkTask::interrupt(thread_, getTimeoutInMs());
+	WorkTask::interrupt(thread_, prefferedTimeout);
 	delete runningThreadAddress_;
 	::CloseHandle(thread_);
 

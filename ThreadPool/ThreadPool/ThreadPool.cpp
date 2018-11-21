@@ -1,29 +1,26 @@
 #include "ThreadPool.h"
 
-ThreadPool::ThreadPool(int maxThreads, int maxIdleTime)
+ThreadPool::ThreadPool(int maxThreads, int timeout)
 {
 	// fields initialization
 	this->setMinThreads(ThreadPool::DEFAULT_MIN_THREADS);
 	this->setMaxThreads(maxThreads);
-	this->setMaxTimeout(maxIdleTime);
+	this->setTimeoutInMs(timeout);
 
 	unitsList_ = new std::vector<UnitOfWork *>();
 	threadList_ = new std::vector<WorkTask *>();
 
 	// synchronizing sections initialization
 	unitsSection_ = new CRITICAL_SECTION();
-	destoyedSection_ = new CRITICAL_SECTION();
 	threadsSection_ = new CRITICAL_SECTION();
-	managementSection_ = new CRITICAL_SECTION();
+	fieldsSection_ = new CRITICAL_SECTION();
 	::InitializeCriticalSectionAndSpinCount(unitsSection_, DEFAULT_SPIN_COUNT);
-	::InitializeCriticalSectionAndSpinCount(destoyedSection_, DEFAULT_SPIN_COUNT);
 	::InitializeCriticalSectionAndSpinCount(threadsSection_, DEFAULT_SPIN_COUNT);
-	::InitializeCriticalSectionAndSpinCount(managementSection_, DEFAULT_SPIN_COUNT);
+	::InitializeCriticalSectionAndSpinCount(fieldsSection_, DEFAULT_SPIN_COUNT);
 
 	// events creation
 	availableEvent_ = new HANDLE(::CreateEvent(nullptr, true, false, nullptr));
 	emptyEvent_ = new HANDLE(::CreateEvent(nullptr, true, false, nullptr));
-	finishedEvent_ = new HANDLE(::CreateEvent(nullptr, true, false, nullptr));
 	startedEvent_ = new HANDLE(::CreateEvent(nullptr, true, false, nullptr));
 
 	// start management thread
@@ -33,6 +30,10 @@ ThreadPool::ThreadPool(int maxThreads, int maxIdleTime)
 		(_beginthreadex_proc_type) ThreadPool::keepManagement,
 		(void *) this, 0, managementThreadAddress_);
 }
+
+
+// =========================================
+
 
 void ThreadPool::closeSafely()
 {
@@ -47,11 +48,11 @@ void ThreadPool::closeSafely()
 
 		// add safeClose field
 
-		this->closeNow();
+		this->interrupt();
 	}
 }
 
-void ThreadPool::closeNow()
+void ThreadPool::interrupt()
 {
 	if (isDestroyed())
 	{
@@ -75,64 +76,6 @@ void ThreadPool::closeNow()
 
 	// free resources
 	this->releaseMemory();	
-}
-
-void ThreadPool::killThreads() 
-{
-	::EnterCriticalSection(threadsSection_);
-	//  no need in ::WaitForMultipleObjects() : task.close() kills all the threads
-	for (WorkTask* task : *threadList_)
-	{
-		if (task != nullptr)
-		{
-			task->close();
-		}
-	}
-	::LeaveCriticalSection(threadsSection_);
-}
-
-void ThreadPool::releaseMemory()
-{
-	if (maxThreads_ != nullptr)
-	{
-		delete maxThreads_;
-	}
-	if (minThreads_ != nullptr)
-	{
-		delete minThreads_;
-	}
-	if (maxTimeout_ != nullptr)
-	{
-		delete maxTimeout_;
-	}
-	if (unitsList_ != nullptr)
-	{
-		delete unitsList_;
-	}
-	if (threadList_ != nullptr)
-	{
-		delete threadList_;
-	}	
-
-	::DeleteCriticalSection(unitsSection_);
-	::DeleteCriticalSection(threadsSection_);
-	::DeleteCriticalSection(destoyedSection_);
-	::DeleteCriticalSection(managementSection_);
-
-	::CloseHandle(*availableEvent_);
-	::CloseHandle(*finishedEvent_);
-	::CloseHandle(*startedEvent_);
-	::CloseHandle(*emptyEvent_);
-
-	delete availableEvent_;
-	delete finishedEvent_;
-	delete startedEvent_;
-	delete emptyEvent_;
-
-	delete managementSection_;
-	delete destoyedSection_;
-	delete threadsSection_;
-	delete unitsSection_;
 }
 
 bool ThreadPool::enqueue(UnitOfWork t)
@@ -163,21 +106,12 @@ bool ThreadPool::enqueue(UnitOfWork t)
 	// new thread creating if conditions are correct
 	if (threadList_->size() < getMaxThreads())
 	{
-		WorkTask *t = new WorkTask(unitsList_, availableEvent_, emptyEvent_, unitsSection_, maxTimeout_); 
+		WorkTask *t = new WorkTask(unitsList_, availableEvent_, emptyEvent_, unitsSection_); 
 		threadList_->push_back(t);			
 	}	
 
 	::LeaveCriticalSection(threadsSection_);	
 	return true;
-}
-
-bool ThreadPool::isDestroyed()
-{
-	bool result;
-	::EnterCriticalSection(destoyedSection_);
-	result = isDestroyed_;
-	::LeaveCriticalSection(destoyedSection_);
-	return result;
 }
 
 void ThreadPool::keepManagement(ThreadPool* t)
@@ -206,7 +140,7 @@ void ThreadPool::keepManagement(ThreadPool* t)
 					WorkTask* w = (*threads)[i];
 
 					// thread destroying if timeout is exceeded
-					if (::time(nullptr) - w->getLastOperationTime() > t->getMaxTimeout())
+					if (::time(nullptr) - w->getLastOperationTime() > t->getTimeoutInMs())
 					{
 						w->close(); 
 						threads->erase(threads->begin() + i); // delete item # i 
@@ -215,9 +149,9 @@ void ThreadPool::keepManagement(ThreadPool* t)
 					}
 				}
 			}				
-			::EnterCriticalSection(t->managementSection_);
+			::EnterCriticalSection(t->fieldsSection_);
 			::SetEvent(*(t->startedEvent_));
-			::LeaveCriticalSection(t->managementSection_);
+			::LeaveCriticalSection(t->fieldsSection_);
 
 			::LeaveCriticalSection(t->threadsSection_);			
 		}
@@ -225,31 +159,101 @@ void ThreadPool::keepManagement(ThreadPool* t)
 		{		
 			exception = std::current_exception();
 		}
-		::Sleep((DWORD) 1000 * t->getMaxTimeout());
+		::Sleep((DWORD) 1000 * t->getTimeoutInMs());
 
 	}
 
 	printf("management thread succeeded %d\n", (int)t->managementThread_);
 }
 
+void ThreadPool::close() {}
+
+
+// =========================================
+
+
+void ThreadPool::killThreads(bool force, time_t timeout)
+{
+	::EnterCriticalSection(threadsSection_);
+
+	for (WorkTask* task : *threadList_)
+	{
+		if (task != nullptr)
+		{
+			task->close(force, timeout);
+		}
+	}
+
+	::LeaveCriticalSection(threadsSection_);
+}
+
+void ThreadPool::releaseMemory()
+{
+	if (unitsList_ != nullptr)
+	{
+		delete unitsList_;
+	}
+	if (threadList_ != nullptr)
+	{
+		delete threadList_;
+	}
+
+	::DeleteCriticalSection(unitsSection_);
+	::DeleteCriticalSection(threadsSection_);
+	::DeleteCriticalSection(fieldsSection_);
+
+	::CloseHandle(*availableEvent_);
+	::CloseHandle(*startedEvent_);
+	::CloseHandle(*emptyEvent_);
+
+	::CloseHandle(managementThread_);
+	delete managementThreadAddress_;
+
+	delete availableEvent_;
+	delete startedEvent_;
+	delete emptyEvent_;
+
+	delete fieldsSection_;
+	delete threadsSection_;
+	delete unitsSection_;
+}
+
+bool ThreadPool::isDestroyed()
+{
+	bool result = true;
+	::EnterCriticalSection(fieldsSection_);
+	result = isDestroyed_;
+	::LeaveCriticalSection(fieldsSection_);
+	return result;
+}
 
 int ThreadPool::getTotalPendingTasks()
 {
 	return this->getUnitListSize();
 }
 
-
 int ThreadPool::getAvailableThreads()
 {
+	int result = 0;
+
+	::EnterCriticalSection(fieldsSection_);
+
 	int maxThreads = this->getMaxThreads();
 	int threadListSize = this->getThreadListSize();
+	
 	if (INVALID_RESULT == maxThreads || INVALID_RESULT == threadListSize)
 	{
-		return INVALID_RESULT;
+		result = INVALID_RESULT;
 	}
-	return maxThreads - threadListSize;
-}
+	else
+	{
+		result = maxThreads - threadListSize;
+	}
 
+	::LeaveCriticalSection(fieldsSection_);
+
+	return result;
+}
 
 int ThreadPool::getThreadListSize() 
 {
@@ -277,87 +281,94 @@ int ThreadPool::getUnitListSize()
 	return length;
 }
 
-
 bool ThreadPool::setMaxThreads(int workerThreads)
 {
-	if (minThreads_ == nullptr)
-	{
-		minThreads_ = new int(ThreadPool::DEFAULT_MIN_THREADS);
-	}
-	if (maxThreads_ == nullptr)
-	{
-		maxThreads_ = new int(ThreadPool::DEFAULT_MAX_THREADS);
-	}
 	bool result = false;
-	if (*minThreads_ <= workerThreads)
+	EnterCriticalSection(fieldsSection_);
+	if (getMinThreads() <= workerThreads)
 	{
-		*maxThreads_ = workerThreads;
+		maxThreads_ = workerThreads;
 		result = true;
 	}
+	LeaveCriticalSection(fieldsSection_);
 	return result;
 }
 
 int ThreadPool::getMaxThreads()
 {
-	if (maxThreads_ == nullptr)
-	{
-		return INVALID_RESULT;
-	}
-	return *maxThreads_;
+	int result = 0;
+	EnterCriticalSection(fieldsSection_);
+	result = maxThreads_;
+	LeaveCriticalSection(fieldsSection_);
+	return result;
 }
-
 
 bool ThreadPool::setMinThreads(int workerThreads)
 {
-	if (minThreads_ == nullptr)
+	bool result = true;
+	EnterCriticalSection(fieldsSection_);
+
+	if (workerThreads >= 0)
 	{
-		minThreads_ = new int(ThreadPool::DEFAULT_MIN_THREADS);
+		minThreads_ = workerThreads;
 	}
-	if (maxThreads_ == nullptr)
+	else
 	{
-		maxThreads_ = new int(ThreadPool::DEFAULT_MAX_THREADS);
+		result = false;
 	}
-	bool result = false;
-	if ((1 <= workerThreads) && (workerThreads <= *maxThreads_))
-	{
-		*minThreads_ = workerThreads;
-		result = true;
-	}
+
+	LeaveCriticalSection(fieldsSection_);
 	return result;
 }
 
 int ThreadPool::getMinThreads()
 {
-	if (minThreads_ == nullptr)
-	{
-		return INVALID_RESULT;
-	}
-	return *minThreads_;
-}
-
-
-bool ThreadPool::setMaxTimeout(int seconds)
-{
-	if (maxTimeout_ == nullptr)
-	{
-		maxTimeout_ = new int(ThreadPool::DEFAULT_TIMEOUT);
-	}
-	bool result = false;
-	if (seconds > 0)
-	{
-		*maxTimeout_ = seconds;
-		result = true;
-	};
+	int result = 0;
+	EnterCriticalSection(fieldsSection_);
+	result = minThreads_;
+	LeaveCriticalSection(fieldsSection_);
 	return result;
 }
 
-int ThreadPool::getMaxTimeout()
+bool ThreadPool::setTimeoutInMs(time_t milliseconds)
 {
-	if (maxTimeout_ == nullptr)
+	bool result = true;
+	EnterCriticalSection(fieldsSection_);
+	if (milliseconds == INFINITE || milliseconds >= 0)
 	{
-		return INVALID_RESULT;
+		timeout_ = milliseconds;
 	}
-	return *maxTimeout_;
+	else
+	{
+		result = false;
+	}
+	LeaveCriticalSection(fieldsSection_);
+	return result;
+}
+
+time_t ThreadPool::getTimeoutInMs()
+{
+	time_t result = 0;
+	EnterCriticalSection(fieldsSection_);
+	result = timeout_;
+	LeaveCriticalSection(fieldsSection_);	
+	return result;
+}
+
+time_t ThreadPool::getTimeoutInSeconds()
+{
+	time_t result = 0;
+	EnterCriticalSection(fieldsSection_);
+	if (timeout_ = INFINITE)
+	{
+		result = INFINITE;
+	}
+	else
+	{
+		result = timeout_ / 1000;
+	}
+	LeaveCriticalSection(fieldsSection_);
+	return result;
 }
 
 
