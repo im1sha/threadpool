@@ -96,20 +96,29 @@ private:
 	// Gets isDestroyed_
 	bool isDestroyed();
 
-	// Event determining if queue of tasks contains 1 item at least
+	// Event determining if queue of units contains 1 item at least
 	HANDLE* availableEvent_ = nullptr;
 
 	// Event determining if queue of tasks contains 0 items
 	HANDLE* emptyEvent_ = nullptr;
 
+	// Event determining if managementThread finished
+	HANDLE* finishedEvent_ = nullptr;
+
+	// Event determining if managementThread started
+	HANDLE* startedEvent_ = nullptr;
+
 	// Critical section providing atomic enque/dequeue operations with queue of UnitIfWork
 	CRITICAL_SECTION* unitsSection_ = nullptr;
 
 	// Critical section providing atomic enque/dequeue operations with queue of threads
-	CRITICAL_SECTION threadsSection_;
+	CRITICAL_SECTION* threadsSection_;
 
 	// Critical section providing atomic operations under isDestroyed_
-	CRITICAL_SECTION destoyedSection_;
+	CRITICAL_SECTION* destoyedSection_;
+
+	// Guards isManagementThreadRunning_
+	CRITICAL_SECTION* managementSection_;
 
 	// Min threads running at the moment
 	int* minThreads_ = nullptr;
@@ -119,7 +128,7 @@ private:
 
 	// Max idle thread time 
 	int* maxTimeout_ = nullptr;
-	
+
 	// Keeps tracking of threads 
 	// that are running more than MaxIdleTime
 	static void keepManagement(ThreadPool* t);
@@ -131,7 +140,7 @@ private:
 	int getUnitListSize();
 
 	// Releases all allocated fields 
-	void deleteFields();
+	void releaseMemory();
 
 	//// Sets interval between calls of management thread
 	//bool setManagementInterval(int millisecondsTimeout);

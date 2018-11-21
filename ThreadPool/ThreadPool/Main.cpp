@@ -64,9 +64,30 @@ int wmain()
 {
 	printf_s("\n\t===Started===\n\n");
 
-	Sorter *s = new Sorter();
-	s->loadAndSort(nullptr);
-	delete s;
+	const int TIMEOUT = 999;
+	const int TOTAL_THREADS = 5;
+
+	printf_s("\nParts to sort\n\t");
+	int parts = -1;
+	/*scanf_s("%i", &parts);*/
+	if (parts <= 0)
+	{
+		parts = TOTAL_THREADS;
+	}
+
+	ThreadPool * threadpool = new ThreadPool(parts, TIMEOUT);
+
+	void ** args = new void*[1];
+	args[0] = threadpool;
+
+	UnitOfWork loadAndSortTask(Sorter::loadAndSort, args);
+
+	threadpool->enqueue(loadAndSortTask);
+
+	threadpool->closeSafely();
+
+	delete threadpool;
+	delete[] args;
 
 	printf_s("\n\t===Finished===\n\n");
 	getchar();	

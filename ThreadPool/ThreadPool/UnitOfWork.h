@@ -10,15 +10,15 @@
 class UnitOfWork
 {
 public:
-	UnitOfWork(std::function<void(void *)> method, void * paremeters);
+	UnitOfWork(std::function<void(void **)> method, void ** paremeters);
 	~UnitOfWork();
 
-	std::function<void(void *)> getMethod();
-	void* getParameters();
+	std::function<void(void **)> getMethod();
+	void ** getParameters();
 
 private:
-	std::function<void(void *)> method_;
-	void* parameters_;
+	std::function<void(void **)> method_;
+	void ** parameters_;
 };
 
 

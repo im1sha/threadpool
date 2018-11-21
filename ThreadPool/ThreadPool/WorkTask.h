@@ -14,7 +14,7 @@ class WorkTask
 {
 public:
 
-	WorkTask(std::vector<UnitOfWork*> * workQueue, HANDLE* availableEvent, HANDLE* emptyEvent, CRITICAL_SECTION* queueSection, int* timeout);
+	WorkTask(std::vector<UnitOfWork*> * workQueue, HANDLE* availableEvent,/* HANDLE* emptyEvent,*/ CRITICAL_SECTION* queueSection, int* timeout);
 
 	// Destroys executed task
 	void close();
@@ -40,7 +40,7 @@ private:
 	HANDLE* availableEvent_ = nullptr;
 	
 	// Determines whether queue contains no elements
-	HANDLE* emptyEvent_ = nullptr;
+	//HANDLE* emptyEvent_ = nullptr;
 
 	// Critical section providing atomic dequeue operations
 	CRITICAL_SECTION* unitsSection_ = nullptr;

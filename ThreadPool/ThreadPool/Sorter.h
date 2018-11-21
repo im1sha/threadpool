@@ -13,8 +13,8 @@
 class Sorter
 {
 public:
-	void loadAndSort(void * params);
-	void sort(void * params);
-	void mergeAndOutput(void * params);
+	static void loadAndSort(void ** params);
+	static void sort(void ** params);
+	static void mergeAndOutput(void ** params);
 };
 

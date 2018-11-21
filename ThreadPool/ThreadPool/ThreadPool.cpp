@@ -7,20 +7,24 @@ ThreadPool::ThreadPool(int maxThreads, int maxIdleTime)
 	this->setMaxThreads(maxThreads);
 	this->setMaxTimeout(maxIdleTime);
 
-	unitsList_ = new std::vector<UnitOfWork*>();
-	threadList_ = new std::vector<WorkTask*>();
+	unitsList_ = new std::vector<UnitOfWork *>();
+	threadList_ = new std::vector<WorkTask *>();
 
-	// synchronizing items initialization
+	// synchronizing sections initialization
 	unitsSection_ = new CRITICAL_SECTION();
+	destoyedSection_ = new CRITICAL_SECTION();
+	threadsSection_ = new CRITICAL_SECTION();
+	managementSection_ = new CRITICAL_SECTION();
 	::InitializeCriticalSectionAndSpinCount(unitsSection_, DEFAULT_SPIN_COUNT);
-	::InitializeCriticalSectionAndSpinCount(&destoyedSection_, DEFAULT_SPIN_COUNT);
-	::InitializeCriticalSectionAndSpinCount(&threadsSection_, DEFAULT_SPIN_COUNT);
+	::InitializeCriticalSectionAndSpinCount(destoyedSection_, DEFAULT_SPIN_COUNT);
+	::InitializeCriticalSectionAndSpinCount(threadsSection_, DEFAULT_SPIN_COUNT);
+	::InitializeCriticalSectionAndSpinCount(managementSection_, DEFAULT_SPIN_COUNT);
 
 	// events creation
-	availableEvent_ = new HANDLE();
-	*availableEvent_ = ::CreateEvent(nullptr, true, false, nullptr);
-	emptyEvent_ = new HANDLE();
-	*emptyEvent_ = ::CreateEvent(nullptr, true, true, nullptr);
+	availableEvent_ = new HANDLE(::CreateEvent(nullptr, true, false, nullptr));
+	emptyEvent_ = new HANDLE(::CreateEvent(nullptr, true, false, nullptr));
+	finishedEvent_ = new HANDLE(::CreateEvent(nullptr, true, false, nullptr));
+	startedEvent_ = new HANDLE(::CreateEvent(nullptr, true, false, nullptr));
 
 	// start management thread
 	keepManagementThreadRunning_ = true;
@@ -37,19 +41,20 @@ void ThreadPool::closeNow()
 		return;
 	}
 
-	::EnterCriticalSection(&destoyedSection_);
+	::EnterCriticalSection(destoyedSection_);
 	isDestroyed_ = true;
-	::LeaveCriticalSection(&destoyedSection_);
+	::LeaveCriticalSection(destoyedSection_);
 
 	// managementThread_ destroying
 	keepManagementThreadRunning_ = false;
+
 	if (managementThread_ != nullptr)
 	{
 		WorkTask::interrupt(managementThread_, INFINITE);
 		managementThread_ = nullptr;
 	}	
 
-	::EnterCriticalSection(&threadsSection_);	
+	::EnterCriticalSection(threadsSection_);	
 	//  no need in ::WaitForMultipleObjects() : task.close() kills all the threads
 	for (WorkTask* task : *threadList_)
 	{
@@ -58,18 +63,10 @@ void ThreadPool::closeNow()
 			task->close();
 		}
 	}	
-	::LeaveCriticalSection(&threadsSection_);
+	::LeaveCriticalSection(threadsSection_);
 
 	// free resources
-	this->deleteFields();
-	::DeleteCriticalSection(unitsSection_);
-	::DeleteCriticalSection(&threadsSection_);
-	::DeleteCriticalSection(&destoyedSection_);
-	delete unitsSection_;
-	::CloseHandle(*availableEvent_);
-	delete availableEvent_;
-	::CloseHandle(*emptyEvent_);
-	delete emptyEvent_;
+	this->releaseMemory();	
 }
 
 void ThreadPool::closeSafely()
@@ -80,12 +77,14 @@ void ThreadPool::closeSafely()
 	}
 	else 
 	{
-		::WaitForSingleObject(emptyEvent_, INFINITE);
+		::WaitForSingleObject(*startedEvent_, INFINITE);
+		::WaitForSingleObject(*finishedEvent_, INFINITE);
+		printf(" # WILL DESTROYED\n");
 		this->closeNow();
 	}
 }
 
-void ThreadPool::deleteFields()
+void ThreadPool::releaseMemory()
 {
 	if (maxThreads_ != nullptr)
 	{
@@ -107,8 +106,27 @@ void ThreadPool::deleteFields()
 	{
 		delete threadList_;
 	}	
-}
 
+	::DeleteCriticalSection(unitsSection_);
+	::DeleteCriticalSection(threadsSection_);
+	::DeleteCriticalSection(destoyedSection_);
+	::DeleteCriticalSection(managementSection_);
+
+	::CloseHandle(*availableEvent_);
+	::CloseHandle(*finishedEvent_);
+	::CloseHandle(*startedEvent_);
+	::CloseHandle(*emptyEvent_);
+
+	delete availableEvent_;
+	delete finishedEvent_;
+	delete startedEvent_;
+	delete emptyEvent_;
+
+	delete managementSection_;
+	delete destoyedSection_;
+	delete threadsSection_;
+	delete unitsSection_;
+}
 
 bool ThreadPool::enqueue(UnitOfWork t)
 {
@@ -127,14 +145,15 @@ bool ThreadPool::enqueue(UnitOfWork t)
 	// signal to waiting for task thread if it's first task
 	if (getUnitListSize() == 1)
 	{
-		::SetEvent(availableEvent_);
-		::ResetEvent(emptyEvent_);
+		::SetEvent(*availableEvent_);
+		//::ResetEvent(emptyEvent_);
 	}
 	::LeaveCriticalSection(unitsSection_);
 
 	// check if idling thread exists
 	
-	::EnterCriticalSection(&threadsSection_);
+	::EnterCriticalSection(threadsSection_);
+	::ResetEvent(*emptyEvent_);
 	/*
 	bool idleThreadExists = false;	
 	for (WorkTask *t : *threadList_)
@@ -151,11 +170,11 @@ bool ThreadPool::enqueue(UnitOfWork t)
 	//if (!idleThreadExists && threadList_->size() < getMaxThreads())
 	if (threadList_->size() < getMaxThreads())
 	{
-		WorkTask *t = new WorkTask(unitsList_, availableEvent_, emptyEvent_, unitsSection_, maxTimeout_); 
+		WorkTask *t = new WorkTask(unitsList_, availableEvent_, /*emptyEvent_,*/ unitsSection_, maxTimeout_); 
 		threadList_->push_back(t);			
 	}	
 
-	::LeaveCriticalSection(&threadsSection_);	
+	::LeaveCriticalSection(threadsSection_);	
 
 	return true;
 }
@@ -163,9 +182,9 @@ bool ThreadPool::enqueue(UnitOfWork t)
 bool ThreadPool::isDestroyed()
 {
 	bool result;
-	::EnterCriticalSection(&destoyedSection_);
+	::EnterCriticalSection(destoyedSection_);
 	result = isDestroyed_;
-	::LeaveCriticalSection(&destoyedSection_);
+	::LeaveCriticalSection(destoyedSection_);
 	return result;
 }
 
@@ -179,11 +198,11 @@ void ThreadPool::keepManagement(ThreadPool* t)
 	printf("management thread started %d\n", (int)t->managementThread_);
 
 	while (t->keepManagementThreadRunning_)
-	{
+	{		
 		std::exception_ptr exception;		
 		try
 		{																
-			::EnterCriticalSection(&t->threadsSection_);
+			::EnterCriticalSection(t->threadsSection_);
 
 			std::vector<WorkTask*> * threads = t->threadList_;
 			int threadListSize = (int) t->getThreadListSize();
@@ -203,16 +222,35 @@ void ThreadPool::keepManagement(ThreadPool* t)
 						i--;
 					}
 				}
-			}					
-			::LeaveCriticalSection(&t->threadsSection_);
-			
+			}				
+			printf(" # SetEvent\n");
+			::EnterCriticalSection(t->managementSection_);
+			::SetEvent(*(t->startedEvent_));
+			::LeaveCriticalSection(t->managementSection_);
+
+			::LeaveCriticalSection(t->threadsSection_);			
 		}
 		catch(...)
 		{		
 			exception = std::current_exception();
 		}
 		::Sleep((DWORD) 1000 * t->getMaxTimeout());
+
+		printf("# keep running : %i\n\n", t->keepManagementThreadRunning_ ? 1 : 0);
 	}
+
+	::EnterCriticalSection(t->managementSection_);	
+	printf("# &t->finishedEvent_\n");
+	::SetEvent(*(t->finishedEvent_));
+	::LeaveCriticalSection(t->managementSection_);
+
+	/*::EnterCriticalSection(&t->threadsSection_);
+	if (t->getThreadListSize() == 0)
+	{
+		::SetEvent(t->emptyEvent_);
+	}
+	::LeaveCriticalSection(&t->threadsSection_);*/
+
 	printf("management thread succeeded %d\n", (int)t->managementThread_);
 }
 
@@ -236,12 +274,12 @@ int ThreadPool::getAvailableThreads()
 int ThreadPool::getThreadListSize() 
 {
 	int result = INVALID_RESULT;
-	::EnterCriticalSection(&threadsSection_);
+	::EnterCriticalSection(threadsSection_);
 	if (threadList_ != nullptr)
 	{
 		result = (int) threadList_->size();
 	}	
-	::LeaveCriticalSection(&threadsSection_);
+	::LeaveCriticalSection(threadsSection_);
 	return result;
 }
 
