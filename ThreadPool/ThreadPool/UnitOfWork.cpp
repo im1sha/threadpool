@@ -1,10 +1,18 @@
 #include "UnitOfWork.h"
 
-UnitOfWork::UnitOfWork(std::function<void(void **)> method, void ** parameters, int timeout)
+UnitOfWork::UnitOfWork(std::function<void(void **)> method, void ** parameters, int timeoutInMs)
 {
 	this->method_ = method;
 	this->parameters_ = parameters;
-	this->timeout_ = timeout;
+
+	if (timeoutInMs < 0)
+	{
+		this->timeoutInMs_ = INFINITE;
+	}
+	else
+	{
+		this->timeoutInMs_ = timeoutInMs;
+	}
 }
 
 UnitOfWork::~UnitOfWork()
@@ -21,9 +29,9 @@ void ** UnitOfWork::getParameters()
 	return parameters_;
 }
 
-int UnitOfWork::getTimeout()
+int UnitOfWork::getTimeoutInMs()
 {
-	return timeout_;
+	return timeoutInMs_;
 }
 
 

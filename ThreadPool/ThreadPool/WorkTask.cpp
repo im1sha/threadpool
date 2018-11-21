@@ -1,44 +1,65 @@
 #include "WorkTask.h"
 
-WorkTask::WorkTask(std::vector<UnitOfWork*> * workQueue, HANDLE* availableEvent, HANDLE* emptyEvent, CRITICAL_SECTION * queueSection, int* timeout)
+WorkTask::WorkTask(std::vector<UnitOfWork*> * workQueue, HANDLE* availableEvent, HANDLE* emptyEvent, CRITICAL_SECTION * unitsSection)
 {
 	unitsQueue_ = workQueue;
 	availableEvent_ = availableEvent;
 	emptyEvent_ = emptyEvent;
-	unitsSection_ = queueSection;
-	waitTimeout_ = timeout;
-	lastOperationTime_ = ::time(nullptr);
+	unitsSection_ = unitsSection;
+	lastOperationTimeInSeconds_ = ::time(nullptr);
+
+	localFieldSection_ = new CRITICAL_SECTION();
+	::InitializeCriticalSection(localFieldSection_);
 
 	busy_ = true;
 	shouldKeepRunning_ = true;
 
 	thread_ = (HANDLE) ::_beginthreadex(nullptr, 0, 
-		(_beginthreadex_proc_type) WorkTask::startExecutableLoop, 
-		(void *) this, 0, runningThread_);	
+		(_beginthreadex_proc_type) WorkTask::startExecuting, 
+		(void *) this, 0, runningThreadAddress_);	
 }
 
-//WorkTask::~WorkTask()
-//{
-//	if (!isDestroyed_)
-//	{
-//		isDestroyed_ = true;
-//		this->close();
-//	}
-//}
 
 void WorkTask::close() 
 {	
+	::EnterCriticalSection(localFieldSection_);
+	
 	isDestroyed_ = true;
 	shouldKeepRunning_ = false;
 	busy_ = false;
-	this->interrupt(thread_, (time_t) waitTimeout_);
+	this->interrupt(thread_, (time_t) waitTimeoutInMs_);
+	delete runningThreadAddress_;
+	::CloseHandle(thread_);
+
+	::LeaveCriticalSection(localFieldSection_);
+	::DeleteCriticalSection(localFieldSection_);
+	delete localFieldSection_;
 }
+
+void WorkTask::interrupt(HANDLE hThread, time_t secondsWaitTimeout)
+{
+	printf("interrupt call : %d\n", (int)hThread);
+	DWORD returnValue = ::WaitForSingleObject(hThread, (DWORD)(1000 * secondsWaitTimeout));
+
+	if (returnValue == WAIT_OBJECT_0)
+	{
+		// terminated itself
+		// no actions needed
+	}
+	else
+	{
+		::TerminateThread(hThread, -1);
+		printf("terminated  %d", (int)hThread);
+	}
+}
+
 
 UnitOfWork* WorkTask::dequeue()
 {
 	UnitOfWork* result = nullptr;
 
 	::EnterCriticalSection(unitsSection_);
+
 	if ((unitsQueue_ != nullptr) && (unitsQueue_->size() != 0))
 	{
 		result = new UnitOfWork(*((*unitsQueue_)[0]));
@@ -49,42 +70,13 @@ UnitOfWork* WorkTask::dequeue()
 			::SetEvent(*emptyEvent_);
 		}
 	}
+
 	::LeaveCriticalSection(unitsSection_);
 
 	return result;
 }
 
-void WorkTask::interrupt(HANDLE hThread, time_t secondsWaitTimeout)
-{	
-	printf("interrupt call  %d\n", (int) hThread);
-	DWORD returnValue = ::WaitForSingleObject(hThread, (DWORD) (1000 * secondsWaitTimeout));
-	
-	if (returnValue == WAIT_OBJECT_0) 
-	{
-		// terminated itself
-		// no actions needed
-	}
-	else
-	{
-		::TerminateThread(hThread, -1);
-		printf("terminated  %d", (int) hThread);
-	}
-}
-
-//void WorkTask::wakeUp()
-//{
-//	this->interrupt(thread_, (time_t) waitTimeout_);
-//
-//	busy_ = true;
-//	shouldKeepRunning_ = true;
-//
-//	// thread restarting
-//	thread_ = (HANDLE) ::_beginthreadex(nullptr, 0,
-//		(_beginthreadex_proc_type)WorkTask::startExecutableLoop,
-//		(void *)this, 0, runningThread_);
-//}
-
-unsigned WorkTask::startExecutableLoop(WorkTask* task) 
+unsigned WorkTask::startExecuting(WorkTask* task) 
 {
 	unsigned exitCode = (task != nullptr) ? 0 : -1;
 
@@ -94,6 +86,7 @@ unsigned WorkTask::startExecutableLoop(WorkTask* task)
 	{ 
 		return exitCode;
 	}
+
 	UnitOfWork* u = nullptr;
 	while (task->shouldKeepRunning_)
 	{
@@ -104,25 +97,32 @@ unsigned WorkTask::startExecutableLoop(WorkTask* task)
 			{
 				while ((u == nullptr) && task->shouldKeepRunning_)
 				{
-					WaitForSingleObject(*(task->availableEvent_), (DWORD) *(task->waitTimeout_) * 1000 /*INFINITY*/);
+					::WaitForSingleObject(*(task->availableEvent_), (DWORD) task->getTimeoutInMs());
 					u = task->dequeue();
 				}		
 
 				if ((u != nullptr) && (u->getMethod() != nullptr))
 				{			
-					task->busy_ = true;
-
 					std::function<void(void **)> functionToExecute = u->getMethod();
 					void ** functionParameters = u->getParameters();
 
-					task->lastOperationTime_ = ::time(nullptr);
+					::EnterCriticalSection(task->localFieldSection_);
+
+					task->busy_ = true;
+					task->lastOperationTimeInSeconds_ = ::time(nullptr);
+					task->waitTimeoutInMs_ = u->getTimeoutInMs();
+
+					::LeaveCriticalSection(task->localFieldSection_);
 
 					functionToExecute(functionParameters);
 
 					delete u;
 					u = nullptr;
 				}
+
+				::EnterCriticalSection(task->localFieldSection_);
 				task->busy_ = false;
+				::LeaveCriticalSection(task->localFieldSection_);
 			}
 		}
 		catch (...)
@@ -134,13 +134,47 @@ unsigned WorkTask::startExecutableLoop(WorkTask* task)
 	return 0;
 }
 
+
 bool WorkTask::isBusy()
 {
-	return busy_;
+	bool result = false;
+	::EnterCriticalSection(localFieldSection_);
+	result = busy_;
+	::LeaveCriticalSection(localFieldSection_);
+	return result;
+}
+
+int WorkTask::getTimeoutInSeconds()
+{
+	int result = 0;
+	::EnterCriticalSection(localFieldSection_);
+	if (waitTimeoutInMs_ < 0)
+	{
+		result = INFINITE;
+	}
+	else
+	{
+		result = waitTimeoutInMs_ / 1000;
+	}
+	::LeaveCriticalSection(localFieldSection_);
+	return result;
+}
+
+int WorkTask::getTimeoutInMs()
+{
+	int result = 0;
+	::EnterCriticalSection(localFieldSection_);
+	result = waitTimeoutInMs_;	
+	::LeaveCriticalSection(localFieldSection_);
+	return result;
 }
 
 time_t WorkTask::getLastOperationTime()
 {
-	return lastOperationTime_;
+	time_t result = 0;
+	::EnterCriticalSection(localFieldSection_);
+	result = lastOperationTimeInSeconds_;
+	::LeaveCriticalSection(localFieldSection_);
+	return result;
 }
 
