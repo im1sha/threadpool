@@ -70,7 +70,12 @@ std::vector<std::wstring> Utils::loadStringsFromFile(std::wstring fileName)
 
 void Utils::sortStrings(std::vector<std::wstring>* strings)
 {
-	std::sort((*strings).begin(), (*strings).end());
+	if (strings == nullptr || strings->size() == 0)
+	{
+		return;
+	}
+
+	std::sort((*strings).begin(), (*strings).end() );
 }
 
 bool Utils::writeToFile(std::wstring path, std::vector<std::wstring> strings) 

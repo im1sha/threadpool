@@ -79,7 +79,6 @@ void ThreadPool::closeSafely()
 	{
 		::WaitForSingleObject(*startedEvent_, INFINITE);
 		::WaitForSingleObject(*finishedEvent_, INFINITE);
-		printf(" # WILL DESTROYED\n");
 		this->closeNow();
 	}
 }
@@ -146,28 +145,14 @@ bool ThreadPool::enqueue(UnitOfWork t)
 	if (getUnitListSize() == 1)
 	{
 		::SetEvent(*availableEvent_);
-		//::ResetEvent(emptyEvent_);
 	}
 	::LeaveCriticalSection(unitsSection_);
 
-	// check if idling thread exists
 	
 	::EnterCriticalSection(threadsSection_);
-	::ResetEvent(*emptyEvent_);
-	/*
-	bool idleThreadExists = false;	
-	for (WorkTask *t : *threadList_)
-	{
-		if (!t->isBusy())
-		{
-			t->wakeUp();
-			idleThreadExists = true;
-			break;
-		}
-	}		
-	*/	
+
+	::ResetEvent(*emptyEvent_);	
 	// new thread creating if conditions are correct
-	//if (!idleThreadExists && threadList_->size() < getMaxThreads())
 	if (threadList_->size() < getMaxThreads())
 	{
 		WorkTask *t = new WorkTask(unitsList_, availableEvent_, /*emptyEvent_,*/ unitsSection_, maxTimeout_); 
@@ -175,7 +160,6 @@ bool ThreadPool::enqueue(UnitOfWork t)
 	}	
 
 	::LeaveCriticalSection(threadsSection_);	
-
 	return true;
 }
 
@@ -223,7 +207,6 @@ void ThreadPool::keepManagement(ThreadPool* t)
 					}
 				}
 			}				
-			printf(" # SetEvent\n");
 			::EnterCriticalSection(t->managementSection_);
 			::SetEvent(*(t->startedEvent_));
 			::LeaveCriticalSection(t->managementSection_);
@@ -236,28 +219,21 @@ void ThreadPool::keepManagement(ThreadPool* t)
 		}
 		::Sleep((DWORD) 1000 * t->getMaxTimeout());
 
-		printf("# keep running : %i\n\n", t->keepManagementThreadRunning_ ? 1 : 0);
 	}
 
 	::EnterCriticalSection(t->managementSection_);	
-	printf("# &t->finishedEvent_\n");
 	::SetEvent(*(t->finishedEvent_));
 	::LeaveCriticalSection(t->managementSection_);
 
-	/*::EnterCriticalSection(&t->threadsSection_);
-	if (t->getThreadListSize() == 0)
-	{
-		::SetEvent(t->emptyEvent_);
-	}
-	::LeaveCriticalSection(&t->threadsSection_);*/
-
 	printf("management thread succeeded %d\n", (int)t->managementThread_);
 }
+
 
 int ThreadPool::getTotalPendingTasks()
 {
 	return this->getUnitListSize();
 }
+
 
 int ThreadPool::getAvailableThreads()
 {
@@ -355,21 +331,6 @@ int ThreadPool::getMinThreads()
 	return *minThreads_;
 }
 
-//bool ThreadPool::setManagementInterval(int millisecondsTimeout)
-//{
-//	bool result = false;
-//	if (millisecondsTimeout > 0)
-//	{
-//		managementInterval_ = millisecondsTimeout;
-//		result = true;
-//	};
-//	return result;
-//}
-//
-//int ThreadPool::getManagementInterval()
-//{
-//	return managementInterval_;
-//}
 
 bool ThreadPool::setMaxTimeout(int seconds)
 {

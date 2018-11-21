@@ -30,12 +30,12 @@ void Sorter::loadAndSort(void ** params)
 		return;
 	}
 
-	std::vector<std::vector<std::wstring>> packsToSort(parts);
+	std::vector<std::vector<std::wstring> *> packsToSort(parts);
 	int totalStrings = (int) content.size();
 
 	// determine packs bounds
 	int * packsBounds = new int[parts + 1];
-	packsBounds[0] = 0;
+	packsBounds[0] = -1;
 	for (size_t i = 1; i < parts; i++)
 	{
 		packsBounds[i] = (totalStrings / parts) + packsBounds[i - 1];
@@ -45,7 +45,7 @@ void Sorter::loadAndSort(void ** params)
 	// place file content into packs
 	for (size_t i = 0; i < parts; i++)
 	{
-		packsToSort[i] = std::vector<std::wstring>(content.begin() + packsBounds[i], content.begin() + packsBounds[i + 1]);
+		packsToSort[i] = new std::vector<std::wstring>(content.begin() + 1 + packsBounds[i], content.begin() + packsBounds[i + 1] );
 	}
 	
 	// synchronizing items initializing
@@ -58,71 +58,86 @@ void Sorter::loadAndSort(void ** params)
 	// threadpool's arguments initializing
 	void ** args = new void*[5];
 	int * requiredParts = new int(parts);
+	args[1] = totalCompleted;
+	args[2] = accessSection;
+	args[3] = readyEvent;
+	args[4] = requiredParts;
 
 	// threadPool sorts packs 
 	for (size_t i = 0; i < parts; i++)
 	{
-		args[0] = &packsToSort[i];
-		args[1] = totalCompleted;
-		args[2] = accessSection;
-		args[3] = readyEvent;
-		args[4] = requiredParts;
+		args[0] = &packsToSort[i];		
 		UnitOfWork sortPack(Sorter::sort, args);
 		threadPool->enqueue(sortPack);
 	}
-	::WaitForSingleObject(readyEvent, INFINITE);
+	::WaitForSingleObject(readyEvent, 60000);
+
+	// preparing strings for merge
+	std::wstring * stringsToMerge = new std::wstring [totalStrings];
+	size_t shift = 0;
+	for (size_t i = 0; i < parts; i++)
+	{
+		for (size_t j = 0; j < packsToSort[i]->size(); j++)
+		{
+			stringsToMerge[shift + j] =  (*packsToSort[i])[j];
+		}
+		shift += packsToSort[i]->size();
+	}
+
+	// threadPool merges strings and outputs them to file
+	void ** mergeArgs = new void*[2];
+	mergeArgs[0] = stringsToMerge;
+	mergeArgs[1] = new int (totalStrings);
+	UnitOfWork mergeUnit(Sorter::mergeAndOutput, mergeArgs);
+	threadPool->enqueue(mergeUnit);
 
 	// release memory
+	for (size_t i = 0; i < packsToSort.size(); i++)
+	{
+		delete packsToSort[i];
+	}
 	delete[] args;
 	delete totalCompleted;
 	::DeleteCriticalSection(accessSection);
 	::CloseHandle(*readyEvent);
 	delete accessSection;
 	delete readyEvent;
-	delete requiredParts;
-
-	content.clear(); 
-
-	for (size_t i = 0; i < parts; i++)
-	{
-		for (size_t j = 0; j < packsToSort[i].size(); j++)
-		{
-			content.push_back(packsToSort[i][j]);
-		}
-	}
-
-	// =======================
-
-	std::wstring * mergedArray = Utils::vectorToArray(content);
-	Utils::mergeSort(mergedArray, (int) content.size());
-	content = Utils::arrayToVector(mergedArray, (int) content.size());
-	std::wstring destination = Utils::selectSaveFile(nullptr);
-	bool result = Utils::writeToFile(destination, content);
-
-	// free memory 
-	delete[] mergedArray;
+	delete requiredParts;	
+	delete[] mergeArgs;
 	delete[] packsBounds;
 }
 
 void Sorter::sort(void ** params)
 {
-	std::vector<std::wstring> * v = (std::vector<std::wstring> *) params[0];
-	Utils::sortStrings(v);
+	std::vector<std::wstring> * strings = (std::vector<std::wstring> *) params[0];	
 	int * totalCompleted = (int *) params[1];
 	CRITICAL_SECTION * accessSection = (CRITICAL_SECTION *) params[2];
 	HANDLE * readyEvent = (HANDLE *) params[3];
 	int * requiredParts = (int *) params[4];
-	::EnterCriticalSection(accessSection);
+
+	Utils::sortStrings(strings);	
+	::EnterCriticalSection(accessSection);	
+	
 	(*totalCompleted)++;	
 	if (*totalCompleted == *requiredParts)
 	{
-		::SetEvent(readyEvent);
+		::SetEvent(*readyEvent);
 	}
 	::LeaveCriticalSection(accessSection);
 }
 
 void Sorter::mergeAndOutput(void ** params)
 {
+	std::wstring * mergedArray = (std::wstring *) params[0];
+	int * totalStrings = (int *)params[1];
+	Utils::mergeSort(mergedArray, *totalStrings);
+	std::vector<std::wstring> content = Utils::arrayToVector(mergedArray, *totalStrings);
 
+	std::wstring destination = Utils::selectSaveFile(nullptr);
+	bool result = Utils::writeToFile(destination, content);
+
+	printf("+ output is ready\n");
+	delete[] mergedArray;
+	delete totalStrings;
 }
 
