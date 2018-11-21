@@ -30,22 +30,22 @@ void Sorter::loadAndSort(void ** params)
 		return;
 	}
 
-	std::vector<std::vector<std::wstring> *> packsToSort(parts);
+	std::vector<std::wstring> * packsToSort = new std::vector<std::wstring>[parts];
 	int totalStrings = (int) content.size();
 
 	// determine packs bounds
 	int * packsBounds = new int[parts + 1];
-	packsBounds[0] = -1;
+	packsBounds[0] = 0;
 	for (size_t i = 1; i < parts; i++)
 	{
 		packsBounds[i] = (totalStrings / parts) + packsBounds[i - 1];
 	}
-	packsBounds[parts] = totalStrings - 1;	
+	packsBounds[parts] = totalStrings;	
 
 	// place file content into packs
 	for (size_t i = 0; i < parts; i++)
 	{
-		packsToSort[i] = new std::vector<std::wstring>(content.begin() + 1 + packsBounds[i], content.begin() + packsBounds[i + 1] );
+		packsToSort[i] =  std::vector<std::wstring>(content.begin() + packsBounds[i], content.begin() + packsBounds[i + 1]);
 	}
 	
 	// synchronizing items initializing
@@ -66,22 +66,22 @@ void Sorter::loadAndSort(void ** params)
 	// threadPool sorts packs 
 	for (size_t i = 0; i < parts; i++)
 	{
-		args[0] = &packsToSort[i];		
+		args[0] = &(packsToSort[i]);		
 		UnitOfWork sortPack(Sorter::sort, args);
 		threadPool->enqueue(sortPack);
 	}
-	::WaitForSingleObject(readyEvent, 60000);
+	::WaitForSingleObject(*readyEvent, 60000);
 
 	// preparing strings for merge
 	std::wstring * stringsToMerge = new std::wstring [totalStrings];
 	size_t shift = 0;
 	for (size_t i = 0; i < parts; i++)
 	{
-		for (size_t j = 0; j < packsToSort[i]->size(); j++)
+		for (size_t j = 0; j < packsToSort[i].size(); j++)
 		{
-			stringsToMerge[shift + j] =  (*packsToSort[i])[j];
+			stringsToMerge[shift + j] =  packsToSort[i][j];
 		}
-		shift += packsToSort[i]->size();
+		shift += packsToSort[i].size();
 	}
 
 	// threadPool merges strings and outputs them to file
@@ -92,10 +92,8 @@ void Sorter::loadAndSort(void ** params)
 	threadPool->enqueue(mergeUnit);
 
 	// release memory
-	for (size_t i = 0; i < packsToSort.size(); i++)
-	{
-		delete packsToSort[i];
-	}
+
+	delete[] packsToSort;
 	delete[] args;
 	delete totalCompleted;
 	::DeleteCriticalSection(accessSection);
@@ -115,9 +113,10 @@ void Sorter::sort(void ** params)
 	HANDLE * readyEvent = (HANDLE *) params[3];
 	int * requiredParts = (int *) params[4];
 
-	Utils::sortStrings(strings);	
+	Utils::sortStrings(strings);
 	::EnterCriticalSection(accessSection);	
 	
+
 	(*totalCompleted)++;	
 	if (*totalCompleted == *requiredParts)
 	{

@@ -33,7 +33,24 @@ ThreadPool::ThreadPool(int maxThreads, int maxIdleTime)
 		(_beginthreadex_proc_type) ThreadPool::keepManagement,
 		(void *) this, 0, managementThreadAddress_);
 }
-	
+
+void ThreadPool::closeSafely()
+{
+	if (isDestroyed())
+	{
+		return;
+	}
+	else
+	{
+		::WaitForSingleObject(*startedEvent_, INFINITE);
+		printf("@ this->closeNow\n");
+
+		// add safeClose field
+
+		this->closeNow();
+	}
+}
+
 void ThreadPool::closeNow()
 {
 	if (isDestroyed())
@@ -54,7 +71,15 @@ void ThreadPool::closeNow()
 		managementThread_ = nullptr;
 	}	
 
-	::EnterCriticalSection(threadsSection_);	
+	killThreads();
+
+	// free resources
+	this->releaseMemory();	
+}
+
+void ThreadPool::killThreads() 
+{
+	::EnterCriticalSection(threadsSection_);
 	//  no need in ::WaitForMultipleObjects() : task.close() kills all the threads
 	for (WorkTask* task : *threadList_)
 	{
@@ -62,25 +87,8 @@ void ThreadPool::closeNow()
 		{
 			task->close();
 		}
-	}	
+	}
 	::LeaveCriticalSection(threadsSection_);
-
-	// free resources
-	this->releaseMemory();	
-}
-
-void ThreadPool::closeSafely()
-{
-	if (isDestroyed())
-	{
-		return;
-	}
-	else 
-	{
-		::WaitForSingleObject(*startedEvent_, INFINITE);
-		::WaitForSingleObject(*finishedEvent_, INFINITE);
-		this->closeNow();
-	}
 }
 
 void ThreadPool::releaseMemory()
@@ -155,7 +163,7 @@ bool ThreadPool::enqueue(UnitOfWork t)
 	// new thread creating if conditions are correct
 	if (threadList_->size() < getMaxThreads())
 	{
-		WorkTask *t = new WorkTask(unitsList_, availableEvent_, /*emptyEvent_,*/ unitsSection_, maxTimeout_); 
+		WorkTask *t = new WorkTask(unitsList_, availableEvent_, emptyEvent_, unitsSection_, maxTimeout_); 
 		threadList_->push_back(t);			
 	}	
 
@@ -220,10 +228,6 @@ void ThreadPool::keepManagement(ThreadPool* t)
 		::Sleep((DWORD) 1000 * t->getMaxTimeout());
 
 	}
-
-	::EnterCriticalSection(t->managementSection_);	
-	::SetEvent(*(t->finishedEvent_));
-	::LeaveCriticalSection(t->managementSection_);
 
 	printf("management thread succeeded %d\n", (int)t->managementThread_);
 }

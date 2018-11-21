@@ -1,10 +1,10 @@
 #include "WorkTask.h"
 
-WorkTask::WorkTask(std::vector<UnitOfWork*> * workQueue, HANDLE* availableEvent,/* HANDLE* emptyEvent, */CRITICAL_SECTION * queueSection, int* timeout)
+WorkTask::WorkTask(std::vector<UnitOfWork*> * workQueue, HANDLE* availableEvent, HANDLE* emptyEvent, CRITICAL_SECTION * queueSection, int* timeout)
 {
 	unitsQueue_ = workQueue;
 	availableEvent_ = availableEvent;
-	//emptyEvent_ = emptyEvent;
+	emptyEvent_ = emptyEvent;
 	unitsSection_ = queueSection;
 	waitTimeout_ = timeout;
 	lastOperationTime_ = ::time(nullptr);
@@ -46,7 +46,7 @@ UnitOfWork* WorkTask::dequeue()
 		if (unitsQueue_->size() == 0)
 		{
 			::ResetEvent(*availableEvent_);
-			//::SetEvent(emptyEvent_);
+			::SetEvent(*emptyEvent_);
 		}
 	}
 	::LeaveCriticalSection(unitsSection_);

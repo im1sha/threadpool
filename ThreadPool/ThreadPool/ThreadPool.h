@@ -30,6 +30,7 @@ public:
 	// All not started tasks will be ignored
 	void closeNow();
 
+	
 	// Destroys ThreadPool instance, 
 	// running threads and management thread
 	void closeSafely();
@@ -141,6 +142,8 @@ private:
 
 	// Releases all allocated fields 
 	void releaseMemory();
+
+	void killThreads();
 
 	//// Sets interval between calls of management thread
 	//bool setManagementInterval(int millisecondsTimeout);

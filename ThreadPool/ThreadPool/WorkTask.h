@@ -14,16 +14,13 @@ class WorkTask
 {
 public:
 
-	WorkTask(std::vector<UnitOfWork*> * workQueue, HANDLE* availableEvent,/* HANDLE* emptyEvent,*/ CRITICAL_SECTION* queueSection, int* timeout);
+	WorkTask(std::vector<UnitOfWork*> * workQueue, HANDLE* availableEvent, HANDLE* emptyEvent, CRITICAL_SECTION* queueSection, int* timeout);
 
 	// Destroys executed task
 	void close();
 
 	// Determines whether the thread executes the task
 	bool isBusy();
-
-	// Interupts idling thread
-	// void wakeUp();
 
 	// Gets time of last operation starting thread
 	time_t getLastOperationTime();
@@ -40,7 +37,7 @@ private:
 	HANDLE* availableEvent_ = nullptr;
 	
 	// Determines whether queue contains no elements
-	//HANDLE* emptyEvent_ = nullptr;
+	HANDLE* emptyEvent_ = nullptr;
 
 	// Critical section providing atomic dequeue operations
 	CRITICAL_SECTION* unitsSection_ = nullptr;
