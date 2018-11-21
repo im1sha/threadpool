@@ -29,7 +29,7 @@ public:
 	time_t getTimeoutInMs();
 
 	// Gets time of last operation starting thread
-	time_t getLastOperationTime();
+	time_t getLastOperationTimeInSeconds();
 
 	// Interupts thread
 	static void interrupt(HANDLE hThread, time_t msWaitTimeout);

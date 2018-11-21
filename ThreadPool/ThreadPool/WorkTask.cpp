@@ -178,7 +178,7 @@ time_t WorkTask::getTimeoutInMs()
 	return result;
 }
 
-time_t WorkTask::getLastOperationTime()
+time_t WorkTask::getLastOperationTimeInSeconds()
 {
 	time_t result = 0;
 	::EnterCriticalSection(localFieldSection_);

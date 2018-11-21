@@ -85,20 +85,19 @@ void ThreadPool::keepManagement(ThreadPool* threadPool)
 	{		
 		std::exception_ptr exception;		
 		try
-		{																
+		{
 			::EnterCriticalSection(threadPool->threadsSection_);
-
 			std::vector<WorkTask*> * threads = threadPool->threadList_;
 			int threadListSize = threadPool->getThreadListSize();
-
 			if (threadListSize > threadPool->getMinThreads())
-			{
+			{				
 				for (size_t i = 0; i < threadListSize; i++)
 				{				
 					WorkTask* workTask = (*threads)[i];
 
 					// thread destroying if timeout is exceeded
-					if (::time(nullptr) - workTask->getLastOperationTime() > workTask->getTimeoutInMs())
+					if ((workTask->getLastOperationTimeInSeconds() != INFINITE) && (::time(nullptr) - 
+						workTask->getLastOperationTimeInSeconds() > workTask->getTimeoutInSeconds()))
 					{
 						workTask->close(false); 
 						threads->erase(threads->begin() + i); // delete item # i 
@@ -106,7 +105,7 @@ void ThreadPool::keepManagement(ThreadPool* threadPool)
 						i--;
 					}
 				}
-			}			
+			}		
 			::LeaveCriticalSection(threadPool->threadsSection_);		
 
 			::EnterCriticalSection(threadPool->fieldsSection_);
@@ -120,9 +119,9 @@ void ThreadPool::keepManagement(ThreadPool* threadPool)
 			else if (threadPool->isDestroySafe())
 			{
 				threadPool->killThreads(false);			
-				//keepTracking = false;
+				keepTracking = false;
 			}
-			::LeaveCriticalSection(threadPool->fieldsSection_);			
+			::LeaveCriticalSection(threadPool->fieldsSection_);		
 		}
 		catch(...)
 		{		

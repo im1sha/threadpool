@@ -114,9 +114,9 @@ void Sorter::sort(void ** params)
 	HANDLE * readyEvent = (HANDLE *) params[3];
 	int * requiredParts = (int *) params[4];
 
-	Utils::sortStrings(strings);
-	::EnterCriticalSection(accessSection);	
 	
+	::EnterCriticalSection(accessSection);	
+	Utils::sortStrings(strings);
 
 	(*totalCompleted)++;	
 	if (*totalCompleted == *requiredParts)
