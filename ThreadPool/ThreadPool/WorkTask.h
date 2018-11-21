@@ -14,7 +14,7 @@ class WorkTask
 {
 public:
 
-	WorkTask(std::vector<UnitOfWork*> * workQueue, HANDLE* availableEvent, HANDLE* emptyEvent, CRITICAL_SECTION* queueSection);
+	WorkTask(std::vector<UnitOfWork*> * unitList, HANDLE* availableEvent, HANDLE* emptyEvent, CRITICAL_SECTION* queueSection);
 
 	// Destroys executed task
 	void close();
@@ -23,16 +23,16 @@ public:
 	bool isBusy();
 
 	// Gets running task max time (in s)
-	int getTimeoutInSeconds();
+	time_t getTimeoutInSeconds();
 
 	// Gets running task max time (in ms)
-	int getTimeoutInMs();
+	time_t getTimeoutInMs();
 
 	// Gets time of last operation starting thread
 	time_t getLastOperationTime();
 
 	// Interupts thread
-	static void interrupt(HANDLE hThread, time_t secondsWaitTimeout);
+	static void interrupt(HANDLE hThread, time_t msWaitTimeout);
 
 private:
 	
@@ -55,7 +55,7 @@ private:
 	unsigned* runningThreadAddress_ = nullptr;
 
 	// Time before running thread closing on close request (seconds)
-	int waitTimeoutInMs_ = INFINITE;
+	time_t waitTimeoutInMs_ = INFINITE;
 
 	// Thread's handle
 	HANDLE thread_ = nullptr;
@@ -65,10 +65,6 @@ private:
 
 	// Determines whether the thread executes the task
 	bool busy_ = false;
-
-	// Instance is about destroying.
-	// State caused by close() function or destructor call
-	bool isDestroyed_ = false;
 
 	// Time of last operation starting thread
 	time_t lastOperationTimeInSeconds_ = 0;

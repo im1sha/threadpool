@@ -17,7 +17,7 @@ int wmain()
 {
 	printf_s("\n\t===Started===\n\n");
 
-	const int TIMEOUT = 999;
+	const int TIMEOUT = 99999;
 	const int TOTAL_THREADS = 5;
 
 	printf_s("\nParts to sort\n\t");

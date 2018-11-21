@@ -1,8 +1,8 @@
 #include "WorkTask.h"
 
-WorkTask::WorkTask(std::vector<UnitOfWork*> * workQueue, HANDLE* availableEvent, HANDLE* emptyEvent, CRITICAL_SECTION * unitsSection)
+WorkTask::WorkTask(std::vector<UnitOfWork*> * unitList, HANDLE* availableEvent, HANDLE* emptyEvent, CRITICAL_SECTION * unitsSection)
 {
-	unitsQueue_ = workQueue;
+	unitsQueue_ = unitList;
 	availableEvent_ = availableEvent;
 	emptyEvent_ = emptyEvent;
 	unitsSection_ = unitsSection;
@@ -23,11 +23,10 @@ WorkTask::WorkTask(std::vector<UnitOfWork*> * workQueue, HANDLE* availableEvent,
 void WorkTask::close() 
 {	
 	::EnterCriticalSection(localFieldSection_);
-	
-	isDestroyed_ = true;
+
 	shouldKeepRunning_ = false;
 	busy_ = false;
-	this->interrupt(thread_, (time_t) waitTimeoutInMs_);
+	WorkTask::interrupt(thread_, getTimeoutInMs());
 	delete runningThreadAddress_;
 	::CloseHandle(thread_);
 
@@ -36,10 +35,11 @@ void WorkTask::close()
 	delete localFieldSection_;
 }
 
-void WorkTask::interrupt(HANDLE hThread, time_t secondsWaitTimeout)
+void WorkTask::interrupt(HANDLE hThread, time_t msWaitTimeout)
 {
 	printf("interrupt call : %d\n", (int)hThread);
-	DWORD returnValue = ::WaitForSingleObject(hThread, (DWORD)(1000 * secondsWaitTimeout));
+
+	DWORD returnValue = ::WaitForSingleObject(hThread, (DWORD) msWaitTimeout);
 
 	if (returnValue == WAIT_OBJECT_0)
 	{
@@ -48,7 +48,7 @@ void WorkTask::interrupt(HANDLE hThread, time_t secondsWaitTimeout)
 	}
 	else
 	{
-		::TerminateThread(hThread, -1);
+		::TerminateThread(hThread, INVALID_RESULT);
 		printf("terminated  %d", (int)hThread);
 	}
 }
@@ -144,9 +144,9 @@ bool WorkTask::isBusy()
 	return result;
 }
 
-int WorkTask::getTimeoutInSeconds()
+time_t WorkTask::getTimeoutInSeconds()
 {
-	int result = 0;
+	time_t result = 0;
 	::EnterCriticalSection(localFieldSection_);
 	if (waitTimeoutInMs_ < 0)
 	{
@@ -160,9 +160,9 @@ int WorkTask::getTimeoutInSeconds()
 	return result;
 }
 
-int WorkTask::getTimeoutInMs()
+time_t WorkTask::getTimeoutInMs()
 {
-	int result = 0;
+	time_t result = 0;
 	::EnterCriticalSection(localFieldSection_);
 	result = waitTimeoutInMs_;	
 	::LeaveCriticalSection(localFieldSection_);

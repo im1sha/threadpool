@@ -18,8 +18,6 @@ class ThreadPool
 public:
 	ThreadPool(int maxThreads = DEFAULT_MAX_THREADS, int maxIdleTime = DEFAULT_TIMEOUT);
 
-	//~ThreadPool();
-
 	// Queues a function for execution. 
 	// The method executes when one of the ThreadPool's 
 	// thread becomes available 
@@ -145,12 +143,6 @@ private:
 
 	void killThreads();
 
-	//// Sets interval between calls of management thread
-	//bool setManagementInterval(int millisecondsTimeout);
-
-	//int getManagementInterval();
-	
-	//int managementInterval_ = 100;
 };
 
 
