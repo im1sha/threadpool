@@ -77,7 +77,7 @@ void ThreadPool::keepManagement(ThreadPool* threadPool)
 		return;
 	}
 
-	printf("management thread started %lld\n", (long long)threadPool->managementThread_);
+	printf("$ management thread started %lld\n", (long long)threadPool->managementThread_);
 
 	bool keepTracking = true;
 
@@ -114,13 +114,11 @@ void ThreadPool::keepManagement(ThreadPool* threadPool)
 			::SetEvent(*(threadPool->startedEvent_));				
 			if (threadPool->isDestroyed())
 			{
-				printf("@@ unsafe kill\n");
 				threadPool->tryKillThreads(true);
 				keepTracking = false;
 			}
 			else if (threadPool->isDestroySafe())
 			{
-				printf("@@ safe kill\n");
 				bool areKilled = threadPool->tryKillThreads(false);			
 				if (areKilled)
 				{
@@ -136,7 +134,7 @@ void ThreadPool::keepManagement(ThreadPool* threadPool)
 		::Sleep((DWORD) threadPool->getTrackingInterval());
 	}
 
-	printf("management thread succeeded %lld\n", (long long)threadPool->managementThread_);
+	printf("# management thread succeeded %lld\n", (long long)threadPool->managementThread_);
 }
 
 bool ThreadPool::enqueue(UnitOfWork t)

@@ -20,7 +20,7 @@ int wmain()
 	const int TIMEOUT = 99999;
 	const int TOTAL_THREADS = 5;
 
-	printf_s("\nParts to sort\n\t");
+	printf_s("\nParts to sort\n\n");
 	int parts = -1;
 	/*scanf_s("%i", &parts);*/
 	if (parts <= 0)
@@ -28,7 +28,7 @@ int wmain()
 		parts = TOTAL_THREADS;
 	}
 
-	ThreadPool * threadpool = new ThreadPool(parts, TIMEOUT);
+	ThreadPool * threadpool = new ThreadPool(parts);
 
 	void ** args = new void*[1];
 	args[0] = threadpool;
@@ -36,16 +36,14 @@ int wmain()
 	UnitOfWork loadAndSortTask(Sorter::loadAndSort, args);
 
 	threadpool->enqueue(loadAndSortTask);
-	//::Sleep(15000);
+
 	threadpool->closeSafely();
-	//threadpool->interrupt();
 
 	delete threadpool;
 	delete[] args;
 
 	printf_s("\n\t===Finished===\n\n");
 	getchar();	
-	getchar();
 	getchar();
 
 	return 0;

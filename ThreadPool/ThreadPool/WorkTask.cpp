@@ -21,25 +21,34 @@ WorkTask::WorkTask(std::vector<UnitOfWork*> * unitList, HANDLE* availableEvent, 
 
 bool WorkTask::tryClose(bool forced, time_t timeout)
 {	
-	bool result = true;
+	bool isDestroyed = true;
+
+	//if (forced)
+	//{
 	::EnterCriticalSection(localFieldSection_);
 	shouldKeepRunning_ = false;
 	::LeaveCriticalSection(localFieldSection_);
+	//{
 
-	result = WorkTask::interrupt(thread_, timeout, forced);
+	isDestroyed = WorkTask::interrupt(thread_, timeout, forced);
 
-	delete runningThreadAddress_;
-	::CloseHandle(thread_);
-	::DeleteCriticalSection(localFieldSection_);
-	delete localFieldSection_;
-
-	return result;
+	if (isDestroyed)
+	{
+		delete runningThreadAddress_;
+		::CloseHandle(thread_);
+		::DeleteCriticalSection(localFieldSection_);
+		delete localFieldSection_;
+	}
+	else
+	{
+		
+	}
+	
+	return isDestroyed;
 }
 
 bool WorkTask::interrupt(HANDLE hThread, time_t msWaitTimeout, bool forced)
 {
-	printf("interrupt call : %lld\n", (long long)hThread);
-
 	DWORD returnValue = ::WaitForSingleObject(hThread, (DWORD) msWaitTimeout);
 
 	if ((returnValue != WAIT_OBJECT_0) && forced)
@@ -86,7 +95,7 @@ unsigned WorkTask::startExecuting(WorkTask* task)
 {
 	unsigned exitCode = (task != nullptr) ? 0 : -1;
 
-	printf("started %lld\n", (long long)task->thread_);
+	printf("$ started %lld\n", (long long)task->thread_);
 
 	if (exitCode != 0) 
 	{ 
@@ -136,7 +145,7 @@ unsigned WorkTask::startExecuting(WorkTask* task)
 			exception = std::current_exception();
 		}
 	}
-	printf("succeeded %lld\n", (long long)task->thread_);
+	printf("# succeeded %lld\n", (long long)task->thread_);
 	return 0;
 }
 
