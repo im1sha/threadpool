@@ -1,15 +1,8 @@
 #include "Sorter.h"
 
-//Входной поток читает файл в память, нарезает его на части и создает
-//несколько заданий на сортировку(по числу сортирующих потоков),
-//которые помещает в очередь заданий.Сортирующие потоки извлекают задания, 
-//сортируют свои части файла, отдают все результаты
-//выходному потоку.Выходной поток дожидается всех сортированных частей и 
-//объединяет их методом сортирующего слияния.
-
 void Sorter::loadAndSort(void ** params)
 {
-	printf("loadAndSort started\n");
+	printf("+ loadAndSort started\n");
 	ThreadPool * threadPool = (ThreadPool *) params[0];
 	if (threadPool == nullptr)
 	{
@@ -57,13 +50,11 @@ void Sorter::loadAndSort(void ** params)
 	int * totalCompleted = new int(0);
 
 	// threadpool's arguments initializing
-	void ** args = new void*[5];
 	int * requiredParts = new int(parts);
-	args[1] = totalCompleted;
-	args[2] = accessSection;
-	args[3] = readyEvent;
-	args[4] = requiredParts;
-
+	void ** args = new void*[5] { 
+		nullptr, totalCompleted, accessSection, readyEvent, requiredParts 
+	};
+	
 	// threadPool sorts packs 
 	for (size_t i = 0; i < parts; i++)
 	{
@@ -86,9 +77,9 @@ void Sorter::loadAndSort(void ** params)
 	}
 
 	// threadPool merges strings and outputs them to file
-	void ** mergeArgs = new void*[2];
-	mergeArgs[0] = stringsToMerge;
-	mergeArgs[1] = new int (totalStrings);
+	void ** mergeArgs = new void*[2] { 
+		stringsToMerge, new int(totalStrings) 
+	};
 	UnitOfWork mergeUnit(Sorter::mergeAndOutput, mergeArgs);
 	threadPool->enqueue(mergeUnit);
 
@@ -113,7 +104,6 @@ void Sorter::sort(void ** params)
 	CRITICAL_SECTION * accessSection = (CRITICAL_SECTION *) params[2];
 	HANDLE * readyEvent = (HANDLE *) params[3];
 	int * requiredParts = (int *) params[4];
-
 	
 	::EnterCriticalSection(accessSection);	
 	Utils::sortStrings(strings);

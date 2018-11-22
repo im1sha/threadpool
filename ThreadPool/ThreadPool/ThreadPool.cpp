@@ -1,6 +1,6 @@
 #include "ThreadPool.h"
 
-ThreadPool::ThreadPool(int maxThreads, time_t timeout)
+ThreadPool::ThreadPool(int maxThreads)
 {
 	unitsList_ = new std::vector<UnitOfWork *>();
 	threadList_ = new std::vector<WorkTask *>();
@@ -21,7 +21,7 @@ ThreadPool::ThreadPool(int maxThreads, time_t timeout)
 	// fields initialization
 	this->setMinThreads(ThreadPool::DEFAULT_MIN_THREADS);
 	this->setMaxThreads(maxThreads);
-	this->setTimeoutInMs(timeout);
+	this->setTimeoutInMs(ThreadPool::DEFAULT_TIMEOUT_IN_MS);
 
 	managementThread_ = (HANDLE) ::_beginthreadex(nullptr, 0, 
 		(_beginthreadex_proc_type) ThreadPool::keepManagement,
@@ -59,13 +59,13 @@ void ThreadPool::interrupt()
 void ThreadPool::close()
 {
 	::WaitForSingleObject(*startedEvent_, INFINITE);
-
+	
 	// managementThread_ destroying; management thread  will destroy another threads
 	if (managementThread_ != nullptr)
 	{
 		WorkTask::interrupt(managementThread_, INFINITE, false); 
 	}
-	
+
 	// free resources
 	this->releaseMemory();
 }
@@ -134,7 +134,7 @@ void ThreadPool::keepManagement(ThreadPool* threadPool)
 		::Sleep((DWORD) threadPool->getTrackingInterval());
 	}
 
-	printf("# management thread succeeded %lld\n", (long long)threadPool->managementThread_);
+	printf("\tmanagement thread succeeded %lld\n", (long long)threadPool->managementThread_);
 }
 
 bool ThreadPool::enqueue(UnitOfWork t)

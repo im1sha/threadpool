@@ -13,16 +13,18 @@
 //	WorkTask	- thread wrapper
 //	ThreadPool	- class that's enqueues delegate 
 
-int wmain() 
+//
+// Starts application
+//
+int wmain(wchar_t ** cliargs) 
 {
 	printf_s("\n\t===Started===\n\n");
 
-	const int TIMEOUT = 99999;
-	const int TOTAL_THREADS = 5;
+	const int TOTAL_THREADS = 15;
 
-	printf_s("\nParts to sort\n\n");
+	printf_s("\nParts to sort # ");
 	int parts = -1;
-	/*scanf_s("%i", &parts);*/
+	scanf_s("%i", &parts);
 	if (parts <= 0)
 	{
 		parts = TOTAL_THREADS;
@@ -30,8 +32,7 @@ int wmain()
 
 	ThreadPool * threadpool = new ThreadPool(parts);
 
-	void ** args = new void*[1];
-	args[0] = threadpool;
+	void ** args = new void*[1] { threadpool };
 
 	UnitOfWork loadAndSortTask(Sorter::loadAndSort, args);
 

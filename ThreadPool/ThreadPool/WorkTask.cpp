@@ -23,12 +23,9 @@ bool WorkTask::tryClose(bool forced, time_t timeout)
 {	
 	bool isDestroyed = true;
 
-	//if (forced)
-	//{
 	::EnterCriticalSection(localFieldSection_);
 	shouldKeepRunning_ = false;
 	::LeaveCriticalSection(localFieldSection_);
-	//{
 
 	isDestroyed = WorkTask::interrupt(thread_, timeout, forced);
 
@@ -38,10 +35,6 @@ bool WorkTask::tryClose(bool forced, time_t timeout)
 		::CloseHandle(thread_);
 		::DeleteCriticalSection(localFieldSection_);
 		delete localFieldSection_;
-	}
-	else
-	{
-		
 	}
 	
 	return isDestroyed;
@@ -61,6 +54,7 @@ bool WorkTask::interrupt(HANDLE hThread, time_t msWaitTimeout, bool forced)
 		}
 	}
 
+	// self-terminated thread
 	if (returnValue == WAIT_OBJECT_0)
 	{
 		return true;
@@ -102,12 +96,11 @@ unsigned WorkTask::startExecuting(WorkTask* task)
 		return exitCode;
 	}
 
-	bool entryIteration = true; // instance created now and it needs reach while loop
+	bool entryIteration = true; // instance created now and it needs to go into while loop
 
 	UnitOfWork* u = nullptr;
 	while (task->shouldKeepRunning_ || entryIteration)
 	{
-		printf("inside");
 		std::exception_ptr exception;
 		try
 		{
@@ -149,10 +142,9 @@ unsigned WorkTask::startExecuting(WorkTask* task)
 			exception = std::current_exception();
 		}
 	}
-	printf("# succeeded %lld\n", (long long)task->thread_);
+	printf("\tsucceeded %lld\n", (long long)task->thread_);
 	return 0;
 }
-
 
 bool WorkTask::isBusy()
 {

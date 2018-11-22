@@ -17,17 +17,12 @@ class ThreadPool
 {
 public:
 
-	ThreadPool(int maxThreads = DEFAULT_MAX_THREADS, time_t timeout = DEFAULT_TIMEOUT_IN_MS);
+	ThreadPool(int maxThreads = DEFAULT_MAX_THREADS);
 
 	// Queues a function for execution. 
 	// The method executes when one of the ThreadPool's 
 	// thread becomes available 
 	bool enqueue(UnitOfWork task);
-
-	// Destroys ThreadPool instance, 
-	// running threads and management thread
-	// All not started tasks will be ignored
-	void interrupt();
 
 	// Destroys ThreadPool instance, 
 	// running threads and management thread
@@ -156,6 +151,11 @@ private:
 
 	// Returns trackingInterval_
 	time_t getTrackingInterval();
+
+	// Destroys ThreadPool instance, 
+	// running threads and management thread
+	// All not started tasks will be ignored
+	void interrupt();
 };
 
 
