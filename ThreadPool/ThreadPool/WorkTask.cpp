@@ -102,16 +102,20 @@ unsigned WorkTask::startExecuting(WorkTask* task)
 		return exitCode;
 	}
 
+	bool entryIteration = true; // instance created now and it needs reach while loop
+
 	UnitOfWork* u = nullptr;
-	while (task->shouldKeepRunning_)
+	while (task->shouldKeepRunning_ || entryIteration)
 	{
+		printf("inside");
 		std::exception_ptr exception;
 		try
 		{
-			while (task->shouldKeepRunning_)
+			while (task->shouldKeepRunning_ || entryIteration)
 			{
-				while ((u == nullptr) && task->shouldKeepRunning_)
+				while (((u == nullptr) && task->shouldKeepRunning_) || entryIteration)
 				{
+					entryIteration = false;
 					::WaitForSingleObject(*(task->availableEvent_), (DWORD) task->getManagementInterval());
 					u = task->dequeue();
 				}		
