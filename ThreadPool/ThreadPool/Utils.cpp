@@ -70,12 +70,12 @@ std::vector<std::wstring> Utils::loadStringsFromFile(std::wstring fileName)
 
 void Utils::sortStrings(std::vector<std::wstring>* strings)
 {
-	if (strings == nullptr || strings->size() == 0)
+	if (strings == nullptr || strings->size() <= 1)
 	{
 		return;
 	}
 
-	std::sort((*strings).begin(), (*strings).end() );
+	std::sort((*strings).begin(), (*strings).end() - 1);
 }
 
 bool Utils::writeToFile(std::wstring path, std::vector<std::wstring> strings) 
@@ -87,7 +87,7 @@ bool Utils::writeToFile(std::wstring path, std::vector<std::wstring> strings)
 	if (0 == ::_waccess(path.c_str(), 02)) // where 02 for write-only access
 	{
 		// set file input format as utf-8
-		stream.imbue(std::locale(std::locale::empty(), new std::codecvt_utf8<wchar_t>));
+		stream.imbue(std::locale(std::locale::classic(), new std::codecvt_utf8<wchar_t>));
 
 		if (stream.is_open())
 		{

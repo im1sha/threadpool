@@ -95,6 +95,7 @@ void Sorter::loadAndSort(void ** params)
 	delete requiredParts;	
 	delete[] mergeArgs;
 	delete[] packsBounds;
+	printf("+ loadAndSort finished\n");
 }
 
 void Sorter::sort(void ** params)
@@ -105,9 +106,9 @@ void Sorter::sort(void ** params)
 	HANDLE * readyEvent = (HANDLE *) params[3];
 	int * requiredParts = (int *) params[4];
 	
-	::EnterCriticalSection(accessSection);	
 	Utils::sortStrings(strings);
 
+	::EnterCriticalSection(accessSection);	
 	(*totalCompleted)++;	
 	if (*totalCompleted == *requiredParts)
 	{
