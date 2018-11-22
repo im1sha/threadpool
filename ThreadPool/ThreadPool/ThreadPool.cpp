@@ -1,6 +1,6 @@
 #include "ThreadPool.h"
 
-ThreadPool::ThreadPool(int maxThreads, int timeout)
+ThreadPool::ThreadPool(int maxThreads, time_t timeout)
 {
 	unitsList_ = new std::vector<UnitOfWork *>();
 	threadList_ = new std::vector<WorkTask *>();
@@ -63,7 +63,7 @@ void ThreadPool::close()
 	// managementThread_ destroying; management thread  will destroy another threads
 	if (managementThread_ != nullptr)
 	{
-		WorkTask::interrupt(managementThread_, INFINITE); 
+		WorkTask::interrupt(managementThread_, INFINITE, false); 
 	}
 	
 	// free resources
@@ -77,7 +77,7 @@ void ThreadPool::keepManagement(ThreadPool* threadPool)
 		return;
 	}
 
-	printf("management thread started %d\n", (int)threadPool->managementThread_);
+	printf("management thread started %lld\n", (long long)threadPool->managementThread_);
 
 	bool keepTracking = true;
 
@@ -89,17 +89,19 @@ void ThreadPool::keepManagement(ThreadPool* threadPool)
 			::EnterCriticalSection(threadPool->threadsSection_);
 			std::vector<WorkTask*> * threads = threadPool->threadList_;
 			int threadListSize = threadPool->getThreadListSize();
+
 			if (threadListSize > threadPool->getMinThreads())
 			{				
 				for (size_t i = 0; i < threadListSize; i++)
 				{				
 					WorkTask* workTask = (*threads)[i];
 
-					// thread destroying if timeout is exceeded
-					if ((workTask->getLastOperationTimeInSeconds() != INFINITE) && (::time(nullptr) - 
-						workTask->getLastOperationTimeInSeconds() > workTask->getTimeoutInSeconds()))
+					// thread destroying if its timeout have been exceeded
+					if ((workTask->getTimeoutInSeconds() != INFINITE) && 
+						(::time(nullptr) - workTask->getLastOperationTimeInSeconds() > 
+							workTask->getTimeoutInSeconds()))
 					{
-						workTask->close(false); 
+						workTask->tryClose(true, threadPool->getTimeoutInMs()); 
 						threads->erase(threads->begin() + i); // delete item # i 
 						threadListSize--; 
 						i--;
@@ -109,28 +111,32 @@ void ThreadPool::keepManagement(ThreadPool* threadPool)
 			::LeaveCriticalSection(threadPool->threadsSection_);		
 
 			::EnterCriticalSection(threadPool->fieldsSection_);
-			::SetEvent(*(threadPool->startedEvent_));	
-			
+			::SetEvent(*(threadPool->startedEvent_));				
 			if (threadPool->isDestroyed())
 			{
-				threadPool->killThreads(true, threadPool->getTimeoutInMs());
+				printf("@@ unsafe kill\n");
+				threadPool->tryKillThreads(true);
 				keepTracking = false;
 			}
 			else if (threadPool->isDestroySafe())
 			{
-				threadPool->killThreads(false);			
-				keepTracking = false;
+				printf("@@ safe kill\n");
+				bool areKilled = threadPool->tryKillThreads(false);			
+				if (areKilled)
+				{
+					keepTracking = false;
+				}
 			}
 			::LeaveCriticalSection(threadPool->fieldsSection_);		
 		}
-		catch(...)
+		catch (...)
 		{		
 			exception = std::current_exception();
 		}
 		::Sleep((DWORD) threadPool->getTrackingInterval());
 	}
 
-	printf("management thread succeeded %d\n", (int)threadPool->managementThread_);
+	printf("management thread succeeded %lld\n", (long long)threadPool->managementThread_);
 }
 
 bool ThreadPool::enqueue(UnitOfWork t)
@@ -168,8 +174,9 @@ bool ThreadPool::enqueue(UnitOfWork t)
 	return true;
 }
 
-void ThreadPool::killThreads(bool forced, time_t timeout)
+bool ThreadPool::tryKillThreads(bool forced)
 {
+	bool result = true;
 	::EnterCriticalSection(threadsSection_);
 	int threadListSize = getThreadListSize();
 	for (size_t i = 0; i < threadListSize; i++)
@@ -177,13 +184,21 @@ void ThreadPool::killThreads(bool forced, time_t timeout)
 		WorkTask* workTask = (*threadList_)[i];
 		if (workTask != nullptr)
 		{
-			workTask->close(forced, timeout);
-			threadList_->erase(threadList_->begin() + i); // delete item # i 
-			threadListSize--;
-			i--;
+			bool isKilled = workTask->tryClose(forced, getTimeoutInMs());
+			if (isKilled)
+			{
+				threadList_->erase(threadList_->begin() + i);
+				threadListSize--;
+				i--;
+			}
+			else 
+			{
+				result = false;
+			}
 		}				
 	}
 	::LeaveCriticalSection(threadsSection_);
+	return result;
 }
 
 void ThreadPool::releaseMemory()
@@ -240,15 +255,6 @@ void ThreadPool::releaseMemory()
 	}
 
 	::CloseHandle(managementThread_);
-}
-
-bool ThreadPool::isDestroyed()
-{
-	bool result = true;
-	::EnterCriticalSection(fieldsSection_);
-	result = isDestroyed_;
-	::LeaveCriticalSection(fieldsSection_);
-	return result;
 }
 
 int ThreadPool::getTotalPendingTasks()
@@ -400,6 +406,15 @@ bool ThreadPool::isDestroySafe()
 	bool result = false;
 	::EnterCriticalSection(fieldsSection_);
 	result = isDestroySafe_;
+	::LeaveCriticalSection(fieldsSection_);
+	return result;
+}
+
+bool ThreadPool::isDestroyed()
+{
+	bool result = true;
+	::EnterCriticalSection(fieldsSection_);
+	result = isDestroyed_;
 	::LeaveCriticalSection(fieldsSection_);
 	return result;
 }

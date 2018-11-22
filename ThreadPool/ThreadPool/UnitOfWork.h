@@ -16,12 +16,12 @@ public:
 
 	std::function<void(void **)> getMethod();
 	void ** getParameters();
-	int getTimeoutInMs();
+	time_t getTimeoutInMs();
 
 private:
 	std::function<void(void **)> method_;
 	void ** parameters_;
-	int timeoutInMs_;
+	time_t timeoutInMs_;
 };
 
 

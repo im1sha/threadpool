@@ -17,7 +17,7 @@ class ThreadPool
 {
 public:
 
-	ThreadPool(int maxThreads = DEFAULT_MAX_THREADS, int timeout = DEFAULT_TIMEOUT_IN_MS);
+	ThreadPool(int maxThreads = DEFAULT_MAX_THREADS, time_t timeout = DEFAULT_TIMEOUT_IN_MS);
 
 	// Queues a function for execution. 
 	// The method executes when one of the ThreadPool's 
@@ -71,11 +71,11 @@ private:
 	
 	static const int DEFAULT_MAX_THREADS = 4;
 
-	static const int DEFAULT_MIN_THREADS = 1;
+	static const int DEFAULT_MIN_THREADS = 0;
 
 	static const DWORD DEFAULT_SPIN_COUNT = 4000;
 
-	static const int DEFAULT_TIMEOUT_IN_MS = INFINITE; // (in ms)
+	static const time_t DEFAULT_TIMEOUT_IN_MS = 100; // (in ms)
 
 	static const int DEFAULT_MANAGE_INTERVAL_IN_MS = 100; // (in ms)
 
@@ -126,7 +126,7 @@ private:
 	// Max idle thread time 
 	time_t timeout_ = DEFAULT_TIMEOUT_IN_MS;
 
-	// interval between manage
+	// interval between management activities
 	time_t trackingInterval_ = DEFAULT_MANAGE_INTERVAL_IN_MS;
 
 	// Keeps tracking of threads 
@@ -143,16 +143,16 @@ private:
 	void releaseMemory();
 
 	// Kills all running tasks
-	void killThreads(bool forced = false, time_t timeout = INFINITE);
+	bool tryKillThreads(bool forced = false);
 
 	// Atomic getter under isDestroyed_
 	bool isDestroyed();
-
-	// Destructs current instance
-	void close();
-
+	
 	// Atomic getter under isDestroySafe_
 	bool isDestroySafe();
+
+	// Destructs current instance
+	void close();	
 
 	// Returns trackingInterval_
 	time_t getTrackingInterval();

@@ -29,7 +29,7 @@ void ** UnitOfWork::getParameters()
 	return parameters_;
 }
 
-int UnitOfWork::getTimeoutInMs()
+time_t UnitOfWork::getTimeoutInMs()
 {
 	return timeoutInMs_;
 }

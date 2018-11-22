@@ -36,8 +36,9 @@ int wmain()
 	UnitOfWork loadAndSortTask(Sorter::loadAndSort, args);
 
 	threadpool->enqueue(loadAndSortTask);
-	::Sleep(15000);
+	//::Sleep(15000);
 	threadpool->closeSafely();
+	//threadpool->interrupt();
 
 	delete threadpool;
 	delete[] args;

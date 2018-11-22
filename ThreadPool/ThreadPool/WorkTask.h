@@ -17,7 +17,7 @@ public:
 	WorkTask(std::vector<UnitOfWork*> * unitList, HANDLE* availableEvent, HANDLE* emptyEvent, CRITICAL_SECTION* queueSection);
 
 	// Destroys executed task
-	void close(bool forced = false, time_t timeout = INFINITE);
+	bool tryClose(bool forced = false, time_t timeout = INFINITE);
 
 	// Determines whether the thread executes the task
 	bool isBusy();
@@ -31,11 +31,19 @@ public:
 	// Gets time of last operation starting thread
 	time_t getLastOperationTimeInSeconds();
 
+	// Sets managment interval
+	bool setManagementInterval(time_t milliseconds);
+
+	// Gets managment timeout
+	time_t getManagementInterval();
+
 	// Interupts thread
-	static void interrupt(HANDLE hThread, time_t msWaitTimeout);
+	static bool interrupt(HANDLE hThread, time_t msWaitTimeout, bool forced);
 
 private:
 	
+	static const time_t DEFAULT_MANAGEMENT_INTERVAL_IN_MS = 100;
+
 	// Reference to Threadpool's queue
 	std::vector<UnitOfWork*> * unitsQueue_ = nullptr;
 
@@ -54,8 +62,11 @@ private:
 	// Current thread 
 	unsigned* runningThreadAddress_ = nullptr;
 
-	// Time before running thread closing on close request (seconds)
+	// Time before running thread closing on close request (ms)
 	time_t waitTimeoutInMs_ = INFINITE;
+
+	// Time between next check
+	time_t managementIntervalInMs_ = DEFAULT_MANAGEMENT_INTERVAL_IN_MS;
 
 	// Thread's handle
 	HANDLE thread_ = nullptr;

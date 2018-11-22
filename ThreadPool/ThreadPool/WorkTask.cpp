@@ -19,49 +19,46 @@ WorkTask::WorkTask(std::vector<UnitOfWork*> * unitList, HANDLE* availableEvent, 
 		(void *) this, 0, runningThreadAddress_);	
 }
 
-
-void WorkTask::close(bool forced, time_t timeout)
-{		
+bool WorkTask::tryClose(bool forced, time_t timeout)
+{	
+	bool result = true;
 	::EnterCriticalSection(localFieldSection_);
-	
-	time_t prefferedTimeout = getTimeoutInMs();
-	if (forced)
-	{
-		if (timeout >= 0 || timeout == INFINITE)
-		{
-			prefferedTimeout = timeout;
-		}
-	}
-
 	shouldKeepRunning_ = false;
-	busy_ = false;
-	WorkTask::interrupt(thread_, prefferedTimeout);
+	::LeaveCriticalSection(localFieldSection_);
+
+	result = WorkTask::interrupt(thread_, timeout, forced);
+
 	delete runningThreadAddress_;
 	::CloseHandle(thread_);
-
-	::LeaveCriticalSection(localFieldSection_);
 	::DeleteCriticalSection(localFieldSection_);
 	delete localFieldSection_;
+
+	return result;
 }
 
-void WorkTask::interrupt(HANDLE hThread, time_t msWaitTimeout)
+bool WorkTask::interrupt(HANDLE hThread, time_t msWaitTimeout, bool forced)
 {
-	printf("interrupt call : %d\n", (int)hThread);
+	printf("interrupt call : %lld\n", (long long)hThread);
 
 	DWORD returnValue = ::WaitForSingleObject(hThread, (DWORD) msWaitTimeout);
 
+	if ((returnValue != WAIT_OBJECT_0) && forced)
+	{
+		BOOL terminated = ::TerminateThread(hThread, INVALID_RESULT);
+		if (terminated != 0)
+		{
+			printf("terminated  %lld\n", (long long)hThread);
+			return true;
+		}
+	}
+
 	if (returnValue == WAIT_OBJECT_0)
 	{
-		// terminated itself
-		// no actions needed
+		return true;
 	}
-	else
-	{
-		::TerminateThread(hThread, INVALID_RESULT);
-		printf("terminated  %d", (int)hThread);
-	}
-}
 
+	return false;
+}
 
 UnitOfWork* WorkTask::dequeue()
 {
@@ -89,7 +86,7 @@ unsigned WorkTask::startExecuting(WorkTask* task)
 {
 	unsigned exitCode = (task != nullptr) ? 0 : -1;
 
-	printf("started %d\n", (int) task->thread_);
+	printf("started %lld\n", (long long)task->thread_);
 
 	if (exitCode != 0) 
 	{ 
@@ -106,7 +103,7 @@ unsigned WorkTask::startExecuting(WorkTask* task)
 			{
 				while ((u == nullptr) && task->shouldKeepRunning_)
 				{
-					::WaitForSingleObject(*(task->availableEvent_), (DWORD) task->getTimeoutInMs());
+					::WaitForSingleObject(*(task->availableEvent_), (DWORD) task->getManagementInterval());
 					u = task->dequeue();
 				}		
 
@@ -139,7 +136,7 @@ unsigned WorkTask::startExecuting(WorkTask* task)
 			exception = std::current_exception();
 		}
 	}
-	printf("succeeded  %d\n", (int) task->thread_);
+	printf("succeeded %lld\n", (long long)task->thread_);
 	return 0;
 }
 
@@ -183,6 +180,28 @@ time_t WorkTask::getLastOperationTimeInSeconds()
 	time_t result = 0;
 	::EnterCriticalSection(localFieldSection_);
 	result = lastOperationTimeInSeconds_;
+	::LeaveCriticalSection(localFieldSection_);
+	return result;
+}
+
+bool WorkTask::setManagementInterval(time_t milliseconds)
+{
+	bool result = false;
+	::EnterCriticalSection(localFieldSection_);
+	if (milliseconds > 0)
+	{
+		managementIntervalInMs_ = milliseconds;
+		result = true;
+	}
+	::LeaveCriticalSection(localFieldSection_);
+	return result;
+}
+
+time_t WorkTask::getManagementInterval()
+{
+	time_t result = 0;
+	::EnterCriticalSection(localFieldSection_);
+	result = managementIntervalInMs_;
 	::LeaveCriticalSection(localFieldSection_);
 	return result;
 }
