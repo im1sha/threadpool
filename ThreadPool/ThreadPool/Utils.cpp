@@ -74,8 +74,17 @@ void Utils::sortStrings(std::vector<std::wstring>* strings)
 	{
 		return;
 	}
+	int len = strings->size();
 
-	std::sort((*strings).begin(), (*strings).end() - 1);
+	std::wstring * arr = new std::wstring[strings->size()];
+	arr = Utils::vectorToArray(*strings);
+
+	Utils::mergeSort(arr, len);
+
+	*strings = std::vector<std::wstring>(Utils::arrayToVector(arr, len));
+
+	delete[] arr;
+	//std::sort((*strings).begin(), (*strings).end() - 1);
 }
 
 bool Utils::writeToFile(std::wstring path, std::vector<std::wstring> strings) 

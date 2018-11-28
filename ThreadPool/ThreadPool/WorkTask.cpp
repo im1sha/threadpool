@@ -14,9 +14,12 @@ WorkTask::WorkTask(std::vector<UnitOfWork*> * unitList, HANDLE* availableEvent, 
 	busy_ = true;
 	shouldKeepRunning_ = true;
 
-	thread_ = (HANDLE) ::_beginthreadex(nullptr, 0, 
-		(_beginthreadex_proc_type) WorkTask::startExecuting, 
-		(void *) this, 0, runningThreadAddress_);	
+	while (thread_ == nullptr || thread_ == (HANDLE)-1L)
+	{
+		thread_ = (HANDLE) ::_beginthreadex(nullptr, 0,
+			(_beginthreadex_proc_type)WorkTask::startExecuting,
+			(void *)this, 0, runningThreadAddress_);
+	}	
 }
 
 bool WorkTask::tryClose(bool forced, time_t timeout)

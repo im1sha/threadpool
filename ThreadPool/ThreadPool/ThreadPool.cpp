@@ -23,9 +23,12 @@ ThreadPool::ThreadPool(int maxThreads)
 	this->setMaxThreads(maxThreads);
 	this->setTimeoutInMs(ThreadPool::DEFAULT_TIMEOUT_IN_MS);
 
-	managementThread_ = (HANDLE) ::_beginthreadex(nullptr, 0, 
-		(_beginthreadex_proc_type) ThreadPool::keepManagement,
-		(void *) this, 0, managementThreadAddress_);
+	while (managementThread_ == nullptr || managementThread_ == (HANDLE) -1L)
+	{
+		managementThread_ = (HANDLE) ::_beginthreadex(nullptr, 0,
+			(_beginthreadex_proc_type)ThreadPool::keepManagement,
+			(void *)this, 0, managementThreadAddress_);
+	}
 }
 
 void ThreadPool::closeSafely()
