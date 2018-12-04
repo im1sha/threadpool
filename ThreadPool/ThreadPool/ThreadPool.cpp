@@ -133,10 +133,6 @@ void ThreadPool::keepManagement(ThreadPool* threadPool)
 					}
 				}
 			}		
-
-			//::LeaveCriticalSection(threadPool->threadsSection_);		
-			//::EnterCriticalSection(threadPool->fieldsSection_);
-
 			::SetEvent(*(threadPool->startedEvent_));				
 			if (threadPool->isDestroyed())
 			{
@@ -155,8 +151,7 @@ void ThreadPool::keepManagement(ThreadPool* threadPool)
 				}
 			}
 
-			//::LeaveCriticalSection(threadPool->fieldsSection_);
-			::LeaveCriticalSection(threadPool->threadsSection_); // <NEW>
+			::LeaveCriticalSection(threadPool->threadsSection_); 
 		}
 		catch (...)
 		{		

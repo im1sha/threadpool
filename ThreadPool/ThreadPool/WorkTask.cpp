@@ -82,22 +82,7 @@ UnitOfWork* WorkTask::dequeue()
 
 	if ((unitsQueue_ != nullptr) && (unitsQueue_->size() != 0))
 	{
-		//result = new UnitOfWork(*((*unitsQueue_)[0]));
-
 		result = (*unitsQueue_)[0];
-
-		//================<DEBUG>===============
-		//int * oo = (int *)(result->getParameters())[0];
-		//printf("## %i  %i\n", (int ) *oo, GetCurrentThreadId());
-		//for (size_t i = 0; i < unitsQueue_->size(); i++)
-		//{
-		//	UnitOfWork cc(*((*unitsQueue_)[i])); 
-		//	int * oo = (int *)(cc.getParameters())[0];
-		//	printf("cc %i %i\n", (int)*oo, GetCurrentThreadId());
-		//}
-		//printf("cc %i ENDOF\n", GetCurrentThreadId());
-		//===============================
-
 
 		unitsQueue_->erase(unitsQueue_->begin());
 		if (unitsQueue_->size() == 0)
@@ -136,7 +121,7 @@ unsigned WorkTask::startExecuting(WorkTask* task)
 				while (((u == nullptr) && task->shouldKeepRunning_) || entryIteration)
 				{
 					entryIteration = false;
-					volatile DWORD timeout = (DWORD)task->getManagementInterval();
+					DWORD timeout = (DWORD)task->getManagementInterval();
 					::WaitForSingleObject(*(task->availableEvent_), timeout);
 					u = task->dequeue();
 				}		

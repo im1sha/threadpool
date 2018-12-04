@@ -87,6 +87,7 @@ private:
 	// Executes task belongs to queue of all the tasks passed to ThreadPool  
 	static unsigned startExecuting(WorkTask * args);
 
+	// Starts executing Thread safely
 	void beginExecutingThread();
 
 };

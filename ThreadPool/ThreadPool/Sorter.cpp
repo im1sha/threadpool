@@ -54,8 +54,6 @@ void Sorter::loadAndSort(void ** params)
 	*readyEvent = ::CreateEvent(nullptr, true, false, nullptr);
 	int * totalCompleted = new int(0);
 
-
-
 	// threadpool's arguments initializing
 	int * requiredParts = new int(parts);
 	size_t argsTotal = 5;
@@ -84,16 +82,10 @@ void Sorter::loadAndSort(void ** params)
 	{
 		for (size_t j = 0; j < packsToSort[i].size(); j++)
 		{
-			//printf("[shift + j] == %i\n", shift + j);
 			stringsToMerge[shift + j] = packsToSort[i][j];
 		}
 		shift += packsToSort[i].size();
 	}
-
-	//================<DEBUG>====================
-	//Utils::writeToFile(L"c://users/mike/desktop/debug1.txt", 
-	//	Utils::arrayToVector(stringsToMerge, totalStrings));
-	//===========================================
 
 	// threadPool merges strings and outputs them to file
 	size_t mergeArgsTotal = 2;

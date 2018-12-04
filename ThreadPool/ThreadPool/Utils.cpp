@@ -19,8 +19,6 @@ std::wstring Utils::selectOpenFile(HWND hWnd)
 	openFileName.lpstrDefExt = nullptr;
 	::GetOpenFileName(&openFileName);
 	return std::wstring(fileName);
-
-	//return std::wstring(L"c://users/mike/desktop/T.txt");
 }
 
 std::wstring Utils::selectSaveFile(HWND hWnd)
@@ -42,8 +40,6 @@ std::wstring Utils::selectSaveFile(HWND hWnd)
 	openFileName.lpstrDefExt = nullptr;
 	::GetSaveFileName(&openFileName);
 	return std::wstring(fileName);
-
-	//return std::wstring(L"c://users/mike/desktop/20.txt");
 }
 
 std::vector<std::wstring> Utils::loadStringsFromFile(std::wstring fileName)
@@ -78,10 +74,7 @@ void Utils::sortStrings(std::vector<std::wstring>* strings)
 	{
 		return;
 	}
-	/*for (auto a: *strings)
-	{
 
-	}*/
 	std::sort((*strings).begin(), (*strings).end());
 }
 

@@ -158,11 +158,11 @@ private:
 	// All not started tasks will be ignored
 	void interrupt();
 
+	// Initializes event safely
 	void initializeEvent(volatile HANDLE * eventName);
 
+	// Starts management thread safely
 	void beginManagementThread();
-
-
 };
 
 
