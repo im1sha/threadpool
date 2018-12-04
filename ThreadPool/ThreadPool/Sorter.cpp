@@ -15,12 +15,17 @@ void Sorter::loadAndSort(void ** params)
 	{
 		parts--; // 1 enqueued task is current  
 	}
+	else
+	{
+		return;
+	}
 
 	// load txt file and its content
 	std::wstring sourceFile = Utils::selectOpenFile(nullptr);
 	std::vector<std::wstring> content(Utils::loadStringsFromFile(sourceFile));
 	if (content.size() == 0)
 	{
+		printf("no content");
 		return;
 	}
 
@@ -39,7 +44,7 @@ void Sorter::loadAndSort(void ** params)
 	// place file content into packs
 	for (size_t i = 0; i < parts; i++)
 	{
-		packsToSort[i] =  std::vector<std::wstring>(content.begin() + packsBounds[i], content.begin() + packsBounds[i + 1]);
+		packsToSort[i] = std::vector<std::wstring>(content.begin() + packsBounds[i], content.begin() + packsBounds[i + 1]);
 	}
 	
 	// synchronizing items initializing
@@ -49,17 +54,25 @@ void Sorter::loadAndSort(void ** params)
 	*readyEvent = ::CreateEvent(nullptr, true, false, nullptr);
 	int * totalCompleted = new int(0);
 
+
+
 	// threadpool's arguments initializing
 	int * requiredParts = new int(parts);
-	void ** args = new void*[5] { 
-		nullptr, totalCompleted, accessSection, readyEvent, requiredParts 
-	};
-	
+	size_t argsTotal = 5;
+
+	void *** args = new void**[parts];
+	for (size_t i = 0; i < parts; i++)
+	{
+		args[i] = new void*[argsTotal] {
+			nullptr, totalCompleted, accessSection, readyEvent, requiredParts
+		};
+	}
+
 	// threadPool sorts packs 
 	for (size_t i = 0; i < parts; i++)
 	{
-		args[0] = &(packsToSort[i]);		
-		UnitOfWork sortPack(Sorter::sort, args);
+		args[i][0] = &(packsToSort[i]);		
+		UnitOfWork sortPack(Sorter::sort, args[i]);
 		threadPool->enqueue(sortPack);
 	}
 	::WaitForSingleObject(*readyEvent, 60000);
@@ -71,13 +84,20 @@ void Sorter::loadAndSort(void ** params)
 	{
 		for (size_t j = 0; j < packsToSort[i].size(); j++)
 		{
-			stringsToMerge[shift + j] =  packsToSort[i][j];
+			//printf("[shift + j] == %i\n", shift + j);
+			stringsToMerge[shift + j] = packsToSort[i][j];
 		}
 		shift += packsToSort[i].size();
 	}
 
+	//================<DEBUG>====================
+	//Utils::writeToFile(L"c://users/mike/desktop/debug1.txt", 
+	//	Utils::arrayToVector(stringsToMerge, totalStrings));
+	//===========================================
+
 	// threadPool merges strings and outputs them to file
-	void ** mergeArgs = new void*[2] { 
+	size_t mergeArgsTotal = 2;
+	void ** mergeArgs = new void*[mergeArgsTotal] {
 		stringsToMerge, new int(totalStrings) 
 	};
 	UnitOfWork mergeUnit(Sorter::mergeAndOutput, mergeArgs);
@@ -86,6 +106,10 @@ void Sorter::loadAndSort(void ** params)
 	// release memory
 
 	delete[] packsToSort;
+	for (int i = 0; i < parts; i++)
+	{
+		delete[] args[i];
+	}
 	delete[] args;
 	delete totalCompleted;
 	::DeleteCriticalSection(accessSection);
@@ -110,8 +134,10 @@ void Sorter::sort(void ** params)
 
 	::EnterCriticalSection(accessSection);	
 	(*totalCompleted)++;	
+	printf("totalCompleted==%i\n", *totalCompleted);
 	if (*totalCompleted == *requiredParts)
 	{
+		printf("::SetEvent(*readyEvent)\n");
 		::SetEvent(*readyEvent);
 	}
 	::LeaveCriticalSection(accessSection);

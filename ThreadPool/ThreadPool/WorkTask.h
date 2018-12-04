@@ -14,7 +14,8 @@ class WorkTask
 {
 public:
 
-	WorkTask(std::vector<UnitOfWork*> * unitList, HANDLE* availableEvent, HANDLE* emptyEvent, CRITICAL_SECTION* queueSection);
+	WorkTask(std::vector<UnitOfWork*> * unitList, volatile HANDLE* availableEvent, volatile HANDLE* emptyEvent, CRITICAL_SECTION* queueSection);
+
 
 	// Destroys executed task
 	bool tryClose(bool forced = false, time_t timeout = INFINITE);
@@ -48,10 +49,10 @@ private:
 	std::vector<UnitOfWork*> * unitsQueue_ = nullptr;
 
 	// Determines whether queue contains any element 
-	HANDLE* availableEvent_ = nullptr;
+	volatile HANDLE* availableEvent_ = nullptr;
 	
 	// Determines whether queue contains no elements
-	HANDLE* emptyEvent_ = nullptr;
+	volatile HANDLE* emptyEvent_ = nullptr;
 
 	// Critical section providing atomic dequeue operations
 	CRITICAL_SECTION* unitsSection_ = nullptr;
@@ -85,6 +86,8 @@ private:
 
 	// Executes task belongs to queue of all the tasks passed to ThreadPool  
 	static unsigned startExecuting(WorkTask * args);
+
+	void beginExecutingThread();
 
 };
 

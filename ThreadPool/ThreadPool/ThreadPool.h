@@ -19,6 +19,7 @@ public:
 
 	ThreadPool(int maxThreads = DEFAULT_MAX_THREADS);
 
+
 	// Queues a function for execution. 
 	// The method executes when one of the ThreadPool's 
 	// thread becomes available 
@@ -75,7 +76,7 @@ private:
 	static const int DEFAULT_MANAGE_INTERVAL_IN_MS = 100; // (in ms)
 
 	// Tasks to execute
-	std::vector<UnitOfWork*> * unitsList_ = nullptr;
+	std::vector<UnitOfWork*> * unitsQueue_ = nullptr;
 
 	// Running tasks that execute methods passed by ThreadPool.enqueue()  
 	std::vector<WorkTask*> * threadList_ = nullptr;
@@ -95,13 +96,13 @@ private:
 	bool isDestroySafe_ = false;
 
 	// Event determining if queue of units contains 1 item at least
-	HANDLE* availableEvent_ = nullptr;
+	volatile HANDLE* availableEvent_ = nullptr;
 
 	// Event determining if queue of tasks contains 0 items
-	HANDLE* emptyEvent_ = nullptr;
+	volatile HANDLE* emptyEvent_ = nullptr;
 
 	// Event determining if managementThread started
-	HANDLE* startedEvent_ = nullptr;
+	volatile HANDLE* startedEvent_ = nullptr;
 
 	// Critical section providing atomic enque/dequeue operations with queue of UnitIfWork
 	CRITICAL_SECTION* unitsSection_ = nullptr;
@@ -156,6 +157,12 @@ private:
 	// running threads and management thread
 	// All not started tasks will be ignored
 	void interrupt();
+
+	void initializeEvent(volatile HANDLE * eventName);
+
+	void beginManagementThread();
+
+
 };
 
 

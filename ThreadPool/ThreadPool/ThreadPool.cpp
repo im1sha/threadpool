@@ -2,7 +2,7 @@
 
 ThreadPool::ThreadPool(int maxThreads)
 {
-	unitsList_ = new std::vector<UnitOfWork *>();
+	unitsQueue_ = new std::vector<UnitOfWork *>();
 	threadList_ = new std::vector<WorkTask *>();
 
 	// synchronizing sections initialization
@@ -14,26 +14,48 @@ ThreadPool::ThreadPool(int maxThreads)
 	::InitializeCriticalSectionAndSpinCount(fieldsSection_, DEFAULT_SPIN_COUNT);
 
 	// events creation
-	availableEvent_ = new HANDLE(::CreateEvent(nullptr, true, false, nullptr));
-	emptyEvent_ = new HANDLE(::CreateEvent(nullptr, true, false, nullptr));
-	startedEvent_ = new HANDLE(::CreateEvent(nullptr, true, false, nullptr));
+
+	availableEvent_ = new HANDLE();
+	emptyEvent_ = new HANDLE();
+	startedEvent_ = new HANDLE();
+	initializeEvent(availableEvent_);
+	initializeEvent(emptyEvent_);
+	initializeEvent(startedEvent_);
 
 	// fields initialization
 	this->setMinThreads(ThreadPool::DEFAULT_MIN_THREADS);
 	this->setMaxThreads(maxThreads);
 	this->setTimeoutInMs(ThreadPool::DEFAULT_TIMEOUT_IN_MS);
 
-	while (managementThread_ == nullptr || managementThread_ == (HANDLE) -1L)
+	this->beginManagementThread();
+}
+
+void ThreadPool::initializeEvent(volatile HANDLE * eventName)
+{
+	HANDLE h = nullptr;
+	while (h == nullptr)
+	{
+		h = ::CreateEvent(nullptr, true, false, nullptr);
+	}
+	*eventName = h;
+}
+
+void ThreadPool::beginManagementThread() 
+{
+	managementThread_ = (HANDLE) 0L;
+
+	while (managementThread_ == (HANDLE)0L)
 	{
 		managementThread_ = (HANDLE) ::_beginthreadex(nullptr, 0,
 			(_beginthreadex_proc_type)ThreadPool::keepManagement,
 			(void *)this, 0, managementThreadAddress_);
+		::Sleep(1);
 	}
 }
 
 void ThreadPool::closeSafely()
 {
-	::EnterCriticalSection(fieldsSection_);
+	::EnterCriticalSection(fieldsSection_); // locks access to fields
 	if (isDestroyed() || isDestroySafe())
 	{
 		::LeaveCriticalSection(fieldsSection_);
@@ -111,9 +133,10 @@ void ThreadPool::keepManagement(ThreadPool* threadPool)
 					}
 				}
 			}		
-			::LeaveCriticalSection(threadPool->threadsSection_);		
 
-			::EnterCriticalSection(threadPool->fieldsSection_);
+			//::LeaveCriticalSection(threadPool->threadsSection_);		
+			//::EnterCriticalSection(threadPool->fieldsSection_);
+
 			::SetEvent(*(threadPool->startedEvent_));				
 			if (threadPool->isDestroyed())
 			{
@@ -127,8 +150,13 @@ void ThreadPool::keepManagement(ThreadPool* threadPool)
 				{
 					keepTracking = false;
 				}
+				else
+				{
+				}
 			}
-			::LeaveCriticalSection(threadPool->fieldsSection_);		
+
+			//::LeaveCriticalSection(threadPool->fieldsSection_);
+			::LeaveCriticalSection(threadPool->threadsSection_); // <NEW>
 		}
 		catch (...)
 		{		
@@ -140,7 +168,7 @@ void ThreadPool::keepManagement(ThreadPool* threadPool)
 	printf("\tmanagement thread succeeded %lld\n", (long long)threadPool->managementThread_);
 }
 
-bool ThreadPool::enqueue(UnitOfWork t)
+bool ThreadPool::enqueue(UnitOfWork unit)
 {
 	if (isDestroyed())
 	{
@@ -149,14 +177,14 @@ bool ThreadPool::enqueue(UnitOfWork t)
 
 	// add task 
 	::EnterCriticalSection(unitsSection_);
-	if (unitsList_ != nullptr)
+	if (unitsQueue_ != nullptr)
 	{
-		UnitOfWork * task = new UnitOfWork(t);
-		unitsList_->push_back(task);
+		UnitOfWork * task = new UnitOfWork(unit);
+		unitsQueue_->push_back(task);
 	}
 
 	// signal to thread waiting for task if it's first task
-	if (getUnitListSize() == 1)
+	if (getUnitListSize() > 0)
 	{
 		::SetEvent(*availableEvent_);
 		::ResetEvent(*emptyEvent_);
@@ -167,9 +195,10 @@ bool ThreadPool::enqueue(UnitOfWork t)
 	// new thread creating if it's not enough threads which are running now
 	if (threadList_->size() < getMaxThreads())
 	{
-		WorkTask *t = new WorkTask(unitsList_, availableEvent_, emptyEvent_, unitsSection_);
+		WorkTask *t = new WorkTask(unitsQueue_, availableEvent_, emptyEvent_, unitsSection_);
 		threadList_->push_back(t);
 	}
+
 	::LeaveCriticalSection(threadsSection_);
 
 	return true;
@@ -204,9 +233,9 @@ bool ThreadPool::tryKillThreads(bool forced)
 
 void ThreadPool::releaseMemory()
 {
-	if (unitsList_ != nullptr)
+	if (unitsQueue_ != nullptr)
 	{
-		delete unitsList_;
+		delete unitsQueue_;
 	}
 
 	if (threadList_ != nullptr)
@@ -303,9 +332,9 @@ int ThreadPool::getUnitListSize()
 	int length = INVALID_RESULT;
 
 	::EnterCriticalSection(unitsSection_);
-	if (unitsList_ != nullptr)
+	if (unitsQueue_ != nullptr)
 	{
-		length = (int)unitsList_->size();
+		length = (int)unitsQueue_->size();
 	}
 	::LeaveCriticalSection(unitsSection_);
 

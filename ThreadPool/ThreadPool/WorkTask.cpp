@@ -1,6 +1,6 @@
 #include "WorkTask.h"
 
-WorkTask::WorkTask(std::vector<UnitOfWork*> * unitList, HANDLE* availableEvent, HANDLE* emptyEvent, CRITICAL_SECTION * unitsSection)
+WorkTask::WorkTask(std::vector<UnitOfWork*> * unitList, volatile HANDLE* availableEvent, volatile HANDLE* emptyEvent, CRITICAL_SECTION * unitsSection)
 {
 	unitsQueue_ = unitList;
 	availableEvent_ = availableEvent;
@@ -14,12 +14,20 @@ WorkTask::WorkTask(std::vector<UnitOfWork*> * unitList, HANDLE* availableEvent, 
 	busy_ = true;
 	shouldKeepRunning_ = true;
 
-	while (thread_ == nullptr || thread_ == (HANDLE)-1L)
+	this->beginExecutingThread();
+}
+
+void WorkTask::beginExecutingThread()
+{
+	thread_ = (HANDLE)0L;
+
+	while (thread_ == (HANDLE)0L)
 	{
 		thread_ = (HANDLE) ::_beginthreadex(nullptr, 0,
 			(_beginthreadex_proc_type)WorkTask::startExecuting,
 			(void *)this, 0, runningThreadAddress_);
-	}	
+		::Sleep(1);
+	}
 }
 
 bool WorkTask::tryClose(bool forced, time_t timeout)
@@ -45,7 +53,7 @@ bool WorkTask::tryClose(bool forced, time_t timeout)
 
 bool WorkTask::interrupt(HANDLE hThread, time_t msWaitTimeout, bool forced)
 {
-	DWORD returnValue = ::WaitForSingleObject(hThread, (DWORD) msWaitTimeout);
+	DWORD returnValue = ::WaitForSingleObject(hThread, (DWORD)msWaitTimeout);
 
 	if ((returnValue != WAIT_OBJECT_0) && forced)
 	{
@@ -74,7 +82,23 @@ UnitOfWork* WorkTask::dequeue()
 
 	if ((unitsQueue_ != nullptr) && (unitsQueue_->size() != 0))
 	{
-		result = new UnitOfWork(*((*unitsQueue_)[0]));
+		//result = new UnitOfWork(*((*unitsQueue_)[0]));
+
+		result = (*unitsQueue_)[0];
+
+		//================<DEBUG>===============
+		//int * oo = (int *)(result->getParameters())[0];
+		//printf("## %i  %i\n", (int ) *oo, GetCurrentThreadId());
+		//for (size_t i = 0; i < unitsQueue_->size(); i++)
+		//{
+		//	UnitOfWork cc(*((*unitsQueue_)[i])); 
+		//	int * oo = (int *)(cc.getParameters())[0];
+		//	printf("cc %i %i\n", (int)*oo, GetCurrentThreadId());
+		//}
+		//printf("cc %i ENDOF\n", GetCurrentThreadId());
+		//===============================
+
+
 		unitsQueue_->erase(unitsQueue_->begin());
 		if (unitsQueue_->size() == 0)
 		{
@@ -112,7 +136,8 @@ unsigned WorkTask::startExecuting(WorkTask* task)
 				while (((u == nullptr) && task->shouldKeepRunning_) || entryIteration)
 				{
 					entryIteration = false;
-					::WaitForSingleObject(*(task->availableEvent_), (DWORD) task->getManagementInterval());
+					volatile DWORD timeout = (DWORD)task->getManagementInterval();
+					::WaitForSingleObject(*(task->availableEvent_), timeout);
 					u = task->dequeue();
 				}		
 
